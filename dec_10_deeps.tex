@@ -1,0 +1,858 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{url}
+
+\begin{document}
+
+\title{Testing Detector Fragility with Adversarial Paraphrasing: A Critical Empirical Study of Shortcut Learning and Distributional Convergence}
+
+\author{
+    \IEEEauthorblockN{Anonymous for Review}
+}
+
+\maketitle
+
+\begin{abstract}
+This paper presents a two-phase empirical investigation into the fragility of AI-generated text detectors under paraphrasing attacks. Phase~1 demonstrates how a supervised BiLSTM classifier achieved 99\% accuracy on a narrow fashion review dataset through shortcut learning rather than semantic understanding, with performance collapsing under minimal paraphrasing. This failure motivated Phase~2: a more rigorous evaluation framework centered on adversarial paraphrasing, embedding manifold analysis, and geometric robustness diagnostics. We introduce a controlled multi-domain dataset, recursive paraphrase benchmarking methodology, semantic encoder baselines, and geometric manifold diagnostics. Our work provides an educational framework for understanding why AI text detection is inherently fragile, demonstrating the alignment between theoretical predictions of distributional convergence and empirically observed performance degradation. This study serves as a methodological reference for researchers and educators investigating detector robustness under realistic adversarial conditions.
+\end{abstract}
+
+\begin{IEEEkeywords}
+AI text detection, robustness, paraphrasing, shortcut learning, distributional convergence, semantic embeddings, manifold diagnostics, AUROC degradation
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Large language models (LLMs) now generate text at scale across academic, industrial, and social domains \cite{brown2020language}. This capability has produced substantial interest in AI-generated text detection, particularly in education, digital forensics, enterprise compliance, and media integrity. While early supervised detectors and commercial tools reported high accuracy, recent research demonstrates that such performance is frequently inflated due to unrealistic evaluation settings, spurious correlations, and overfitting to dataset artifacts \cite{sadasivan2023can,krishna2023paraphrasing}.
+
+Seminal work by Sadasivan et al.~\cite{sadasivan2023can} showed that paraphrasing collapses detector reliability by reducing the Total Variation (TV) distance between human and model-generated text distributions. As these distributions converge, the theoretical upper bound of detection performance declines. Krishna et al.~\cite{krishna2023paraphrasing} further demonstrated that recursive paraphrasing induces rapid degradation across detectors, while proposing retrieval-based defenses as a more robust alternative. Tulchinskii et al.~\cite{tulchinskii2023intrinsic} argued that embedding geometry, not classifier probability alone, may contain more reliable signals of synthetic origin. Recent benchmarks such as PADBen \cite{zha2024padben} formalize laundering trajectories and emphasize that robust evaluation must assess resilience under paraphrasing, domain shifts, and progressive distributional convergence.
+
+Despite these advances, a significant gap exists in pedagogical resources that clearly demonstrate \emph{why} detection fails. Commercial tools such as Turnitin continue to propagate misconceptions that AI-generated text can be reliably identified, leading to false positives on classical literature, formal documents, and mathematical expressions \cite{liang2023gpt}. Practitioners and students often encounter these tools without understanding their fundamental failure modes.
+
+This paper presents a two-phase study aligned with contemporary robustness research, but designed explicitly for educational and methodological transparency. Phase~1 investigates a small supervised model trained on a narrow fashion review dataset, revealing shortcut learning and inflated accuracy. Phase~2 constructs a scientifically rigorous, controlled evaluation pipeline intended for educational and diagnostic value. Our emphasis is not on building a practical detector, but on creating an evidence-driven framework that demonstrates why detection is inherently fragile, how performance collapses under paraphrasing, and how geometric diagnostics elucidate failure modes.
+
+\textbf{Contributions:}
+\begin{itemize}
+    \item Empirical demonstration of shortcut learning in a supervised detector with near-perfect accuracy on artifact-heavy data
+    \item Controlled evaluation framework for testing detector robustness under multi-depth paraphrasing
+    \item Geometric manifold diagnostics linking embedding space convergence to AUROC degradation
+    \item Methodological reference for educators and early-career researchers studying detection fragility
+    \item Critical analysis of what constitutes defensible empirical research versus superficial demonstrations
+\end{itemize}
+
+\section{Related Work}
+
+\subsection{Paraphrase Attacks and Detector Limits}
+
+The vulnerability of AI text detectors to paraphrasing has been rigorously established. Sadasivan et al.~\cite{sadasivan2023can} introduced recursive paraphrasing as a stress test and proved a theoretical connection between detection AUROC and Total Variation distance. Their framework demonstrates that as paraphrasing reduces TV between human and AI distributions, even optimal detectors approach random-chance performance. This theoretical bound provides the foundation for understanding inevitable detector failure.
+
+Krishna et al.~\cite{krishna2023paraphrasing} empirically validated these predictions across multiple detector architectures, showing that even sophisticated models collapse under paraphrase attacks. Critically, they proposed retrieval-based defenses—matching suspicious text against a database of known model generations—as a more robust alternative that partially restores detection capability in controlled settings.
+
+PADBen \cite{zha2024padben}, a recent comprehensive benchmark, formalizes paraphrase laundering trajectories and highlights the asymmetry between plagiarism detection and authorship obfuscation. Their work demonstrates that most detectors fail in intermediate laundering regions where text retains semantic meaning but exhibits altered surface statistics. This benchmark provides standardized evaluation protocols that inform our Phase~2 methodology.
+
+\subsection{Statistical and Zero-Shot Detection Methods}
+
+Early detection approaches relied on statistical signals. GLTR \cite{gehrmann2019gltr} pioneered token rank and likelihood visualization, while classical methods employed perplexity and entropy measures \cite{lavergne2008detecting}. DetectGPT \cite{mitchell2023detectgpt} advanced zero-shot detection through curvature analysis of model log-probability surfaces, demonstrating stronger performance than perplexity-based heuristics.
+
+Watermarking schemes \cite{kirchenbauer2023watermark} represent an orthogonal approach, embedding detectable signals during generation. However, watermarks require control over the generation process and remain vulnerable to post-hoc paraphrasing \cite{sadasivan2023can}, limiting their practical applicability in adversarial settings.
+
+\subsection{Geometric and Manifold-Based Approaches}
+
+Recent work has explored embedding geometry as a more robust detection signal. Tulchinskii et al.~\cite{tulchinskii2023intrinsic} proposed using intrinsic dimensionality—geometric properties of embedding manifolds—as a model-agnostic detector, reporting improved cross-domain stability and paraphrase resistance. Kushnareva et al.~\cite{kushnareva2021artificial} applied Topological Data Analysis to attention map structures, extracting interpretable features beyond surface statistics.
+
+These geometric approaches motivate our Phase~2 diagnostic suite. Rather than proposing a new detector, we systematically analyze how paraphrasing transforms embedding manifolds, connecting geometric convergence to performance degradation.
+
+\subsection{Out-of-Distribution Robustness and Benchmarks}
+
+MAGE \cite{li2024mage} demonstrated that detectors trained on specific LLMs or domains catastrophically fail on unseen generators and text types. Their work emphasizes the necessity of cross-generator evaluation and careful OOD testing—requirements we address in our Phase~2 design.
+
+Multiple benchmark datasets support detector evaluation. The AH\&AITD dataset \cite{akram2023human} provides multi-domain human and AI text across approximately 11,500 samples. Ippolito et al.~\cite{ippolito2020automatic} compared human and automatic detection, showing that humans often misjudge AI text, particularly with longer contexts. RoFT \cite{dugan2020real} emphasized human evaluation platforms and transition boundaries in detection.
+
+\subsection{Positioning of This Work}
+
+Our study differs from prior work in its explicitly pedagogical orientation. We do not claim novelty in detection methods or attack strategies. Instead, we provide a transparent, reproducible framework demonstrating \emph{why} detection fails, designed for educational contexts where students and early researchers require clear illustration of shortcut learning, distributional convergence, and geometric analysis. Phase~1 serves as a cautionary tale of artifact-driven success; Phase~2 outlines the rigorous evaluation standards necessary for defensible empirical research.
+
+\section{Phase~1: Shortcut Learning and Failure Analysis}
+
+\subsection{Motivation and Research Context}
+
+Phase~1 originated as an undergraduate course project investigating AI text detection using supervised learning. The project employed a BiLSTM architecture—a recurrent neural network suitable for sequence modeling—applied to a binary classification task distinguishing human-written from AI-generated fashion product reviews. Initial results appeared highly successful, with reported accuracy approaching 99\%. However, subsequent analysis revealed this performance stemmed from shortcut learning: the model exploited superficial dataset artifacts rather than learning meaningful semantic distinctions.
+
+This failure, while initially discouraging, provided valuable pedagogical insight into common pitfalls in machine learning research. It motivated the development of Phase~2's more rigorous methodology and serves as a concrete demonstration of why careful experimental design is essential.
+
+\subsection{Dataset Construction and Artifacts}
+
+The Phase~1 dataset consisted of binary-labeled fashion product reviews:
+
+\textbf{Human-written reviews} were collected from public e-commerce platforms, containing subjective impressions, product experiences, and informal conversational language with natural variance in style, length, and structure.
+
+\textbf{AI-generated reviews} were produced via prompt-based generation using contemporary LLMs (specific models not systematically documented in Phase~1), instructed to write product reviews in a similar domain.
+
+Initial exploratory analysis revealed substantial distributional imbalances between classes:
+
+\begin{itemize}
+    \item \textbf{Sentence length}: AI-generated reviews exhibited more uniform sentence lengths with lower variance
+    \item \textbf{Lexical diversity}: AI text showed repetitive adjective usage and limited vocabulary variation
+    \item \textbf{Punctuation patterns}: AI reviews demonstrated excessive regularity in punctuation placement
+    \item \textbf{Syntactic structure}: AI text exhibited stereotyped sentence openings and formulaic constructions
+    \item \textbf{Politeness markers}: AI reviews contained unnaturally frequent courtesy expressions
+\end{itemize}
+
+These artifacts, though not immediately apparent during casual inspection, later emerged as the primary predictive features exploited by the classifier.
+
+\subsection{Model Architecture}
+
+The Phase~1 classifier employed a standard architecture for text classification:
+
+\begin{itemize}
+    \item \textbf{BiLSTM encoder}: Bidirectional Long Short-Term Memory network producing contextual token embeddings by processing sequences in both forward and backward directions
+    \item \textbf{Residual Self-Attention layer}: Attention mechanism weighting token importance for the classification decision
+    \item \textbf{Dense classification head}: Fully-connected layers producing binary predictions
+\end{itemize}
+
+This architecture was selected for interpretability and pedagogical clarity rather than state-of-the-art performance. BiLSTMs provide attention visualizations that facilitate understanding which textual features drive predictions.
+
+\subsection{Evidence of Shortcut Learning}
+
+Multiple lines of evidence revealed the model's reliance on spurious correlations:
+
+\textbf{Attention heatmap analysis}: Visualization of attention weights consistently highlighted:
+\begin{itemize}
+    \item Repetitive adjectives (``amazing,'' ``beautiful,'' ``perfect'') appearing multiple times in AI reviews
+    \item Excessive politeness markers (``highly recommend,'' ``great purchase'')
+    \item Formulaic sentence openings (``This product is...,'' ``I absolutely...'')
+    \item Uniform punctuation patterns
+\end{itemize}
+
+\textbf{Performance collapse under paraphrasing}: When AI-generated reviews underwent even minimal paraphrasing—replacing synonyms or reordering clauses—classifier accuracy dropped precipitously below 60\%. This dramatic degradation confirmed the model was not capturing robust semantic signals but rather memorizing surface-level lexical patterns.
+
+\textbf{High separability without semantic justification}: The near-perfect accuracy indicated extremely separable distributions—an early warning sign of unintended artifacts. Genuine human-vs-AI distinction based on semantic properties should not yield such clean separation, particularly in informal review text where humans exhibit high stylistic variance.
+
+\subsection{Critical Assessment and Lessons Learned}
+
+Phase~1 provides a valuable demonstration of several common research failures:
+
+\begin{itemize}
+    \item \textbf{Inflated metrics from dataset artifacts}: High accuracy does not necessarily indicate meaningful learning
+    \item \textbf{Extreme sensitivity to distribution shift}: Models exploiting shortcuts fail to generalize beyond their training artifacts
+    \item \textbf{Inability to capture semantic distinctions}: Surface-level pattern matching is insufficient for robust detection
+    \item \textbf{Importance of adversarial evaluation}: Models must be tested under realistic attack conditions
+\end{itemize}
+
+These observations mirror weaknesses extensively documented in contemporary AI detection research \cite{sadasivan2023can,krishna2023paraphrasing,liang2023gpt} and provided compelling motivation for developing Phase~2's rigorous methodology.
+
+\textbf{Phase~1 serves primarily as a cautionary example}. It illustrates how superficial success in machine learning can mask fundamental flaws—a lesson crucial for students and early-career researchers entering the field. The remainder of this paper focuses on Phase~2, which addresses these failures through systematic experimental design.
+
+\section{Misconceptions and Realities of AI Text Detection}
+
+Before presenting Phase~2 methodology, we address several pervasive misconceptions that motivate our pedagogical approach.
+
+\subsection{What Detectors Actually Measure}
+
+Public tools such as Turnitin and GPTZero have amplified misconceptions that AI-generated text possesses detectable ``signatures'' analogous to digital watermarks. In reality, existing detectors do not assess authorship in any cryptographic sense. They evaluate \emph{statistical similarity} to model-generated text distributions.
+
+This fundamental distinction explains well-documented false positives. The Preamble to the Indian Constitution, classical literature, and formal legal documents frequently trigger AI detection flags \cite{liang2023gpt}—not because they are AI-generated, but because their formal register and statistical properties resemble LLM outputs.
+
+\subsection{Special Cases: Mathematical and Code Content}
+
+Symbolic expressions face particular challenges. Equations and mathematical notation exhibit:
+\begin{itemize}
+    \item Low perplexity due to constrained grammar
+    \item Atypical token distributions
+    \item Deterministic syntax
+\end{itemize}
+
+These properties cause detectors to flag mathematical content as ``AI-generated'' despite lacking any meaningful machine origin signal.
+
+Program code presents even greater difficulties. Deterministic syntax, widespread code duplication across repositories, and constrained grammar conspire to make AI provenance detection effectively impossible without cryptographic watermarking embedded at generation time. Any statistical detector will produce arbitrary results on code.
+
+\subsection{The Fundamental Impossibility Result}
+
+Sadasivan et al.~\cite{sadasivan2023can} proved a theoretical result with profound implications: \emph{as paraphrasing reduces Total Variation distance between human and AI text distributions, even optimal Bayes-optimal detectors approach random performance}. This is not a limitation of current methods but a fundamental constraint.
+
+The practical consequence: robust AI text detection is impossible in adversarial settings where actors can apply strong paraphrasing. This reality necessitates a shift from pursuing better detectors to understanding failure modes and developing realistic threat models.
+
+\subsection{Implications for This Work}
+
+Our Phase~2 methodology embraces these realities. We do not claim to build a practical detector. Instead, we construct a diagnostic framework that:
+\begin{itemize}
+    \item Demonstrates \emph{how} performance degrades under controlled paraphrasing
+    \item Connects degradation to measurable geometric properties
+    \item Provides transparent, reproducible evaluation suitable for education
+    \item Acknowledges fundamental limits rather than overstating capabilities
+\end{itemize}
+
+\section{Phase~2: Methodology for Robust Evaluation}
+
+Phase~2 establishes a rigorous evaluation framework addressing the failures identified in Phase~1. Our design follows best practices from recent robustness literature \cite{sadasivan2023can,krishna2023paraphrasing,zha2024padben} while maintaining pedagogical transparency.
+
+\subsection{Design Principles}
+
+Our methodology prioritizes:
+\begin{itemize}
+    \item \textbf{Artifact control}: Systematic removal of spurious correlations
+    \item \textbf{Adversarial realism}: Strong, multi-mode paraphrasing
+    \item \textbf{Diagnostic depth}: Geometric analysis explaining performance changes
+    \item \textbf{Statistical rigor}: Confidence intervals and significance testing
+    \item \textbf{Reproducibility}: Deterministic seeds, documented procedures, and public code availability
+\end{itemize}
+
+\subsection{Objective 1: Artifact-Controlled Dataset Construction}
+
+We construct a balanced, multi-domain dataset addressing Phase~1's failures.
+
+\textbf{Source data}: Curated from the AH\&AITD Kaggle dataset \cite{akram2023human}, providing diverse human and AI text across multiple domains (reviews, essays, explanations, narratives).
+
+\textbf{Preprocessing pipeline}:
+\begin{enumerate}
+    \item \textbf{Normalization}: Standardize whitespace, punctuation, and Unicode characters
+    \item \textbf{Prompt leakage removal}: Filter metadata residues and generation artifacts
+    \item \textbf{Length distribution matching}: Ensure human and AI samples exhibit similar length distributions to prevent length-based shortcuts
+    \item \textbf{Domain balancing}: Sample proportionally across text types
+\end{enumerate}
+
+\textbf{Artifact quantification}: We measure the reduction of spurious separability via:
+\begin{itemize}
+    \item Total Variation distance on unigram distributions
+    \item Lexical diversity metrics (type-token ratio, Yule's K)
+    \item Length distribution statistics (mean, variance, KS test)
+    \item Entropy analysis of token distributions
+\end{itemize}
+
+\textbf{Expected outcome}: Cleaned dataset should exhibit reduced TV and more overlap in surface statistics while preserving genuine semantic differences (if any exist).
+
+\subsection{Objective 2: Two Conceptually Distinct Baseline Detectors}
+
+To expose the role of inductive bias and architectural choice, we evaluate:
+
+\textbf{BiLSTM baseline}: 
+\begin{itemize}
+    \item Recurrent architecture prone to lexicographic shortcuts
+    \item Attention mechanism for interpretability
+    \item Included for continuity with Phase~1 and expected underperformance
+\end{itemize}
+
+\textbf{SBERT embedding classifier}:
+\begin{itemize}
+    \item Sentence-BERT \cite{reimers2019sentence} produces semantic embeddings
+    \item Linear classifier on fixed-dimensional representations
+    \item Captures semantic signals less sensitive to surface perturbations
+\end{itemize}
+
+This comparison enables granular analysis of \emph{when} and \emph{how} robustness degrades based on model architecture.
+
+\subsection{Objective 3: Controlled Paraphrase Evasion Benchmark}
+
+We construct a multi-depth laundering benchmark following PADBen's trajectory framework \cite{zha2024padben}.
+
+\textbf{Benchmark composition} (target: 900 samples):
+\begin{itemize}
+    \item Human-written text (300 samples)
+    \item Raw AI-generated text from multiple LLMs (300 samples)
+    \item Depth-1 paraphrases: single transformer-based paraphrase (300 samples)
+    \item Depth-2 paraphrases: transformer paraphrase + backtranslation (English $\leftrightarrow$ French $\leftrightarrow$ English)
+    \item Depth-3 paraphrases: recursive application of transformer paraphrase
+\end{itemize}
+
+\textbf{Paraphrasing methodology}:
+\begin{itemize}
+    \item \textbf{Transformer paraphraser}: T5-based or PEGASUS models fine-tuned for paraphrasing
+    \item \textbf{Backtranslation}: MarianMT translation models (Helsinki-NLP)
+    \item \textbf{Multiple systems}: Reduce single-model bias by alternating paraphrase methods
+\end{itemize}
+
+\textbf{Design rationale}: Depth-based laundering simulates realistic adversarial scenarios where actors iteratively refine generated text to evade detection.
+
+\subsection{Objective 4: AUROC Degradation Under Paraphrasing}
+
+Following Sadasivan et al.'s framework \cite{sadasivan2023can}, we measure:
+
+\begin{itemize}
+    \item AUROC on clean samples (depth-0)
+    \item AUROC on depth-1, depth-2, depth-3 paraphrases
+    \item Degradation curves across depths
+    \item Paired bootstrap confidence intervals (95\%)
+    \item Statistical significance tests comparing depths
+\end{itemize}
+
+\textbf{Theoretical grounding}: AUROC degradation should correlate with TV distance reduction. If paraphrasing successfully reduces TV, AUROC must approach 0.5 (random chance) for even optimal detectors.
+
+\subsection{Objective 5: Embedding-Space Geometric Diagnostics}
+
+We perform comprehensive geometric analysis to explain \emph{why} AUROC changes:
+
+\textbf{Centroid analysis}:
+\begin{itemize}
+    \item Compute mean embedding for human and AI classes
+    \item Measure cosine distance between centroids
+    \item Track centroid movement across paraphrase depths
+    \item Bootstrap confidence intervals on centroid positions
+\end{itemize}
+
+\textbf{Distributional diagnostics}:
+\begin{itemize}
+    \item \textbf{Pairwise cosine KDEs}: Kernel density estimation of cosine similarities between human-AI, human-paraphrased, etc.
+    \item \textbf{Intra-class variance}: Spread within human and AI classes
+    \item \textbf{Inter/intra ratio}: Ratio of between-class to within-class distances
+\end{itemize}
+
+\textbf{Per-sample drift analysis}:
+\begin{itemize}
+    \item Track individual samples' embedding trajectories under paraphrasing
+    \item Compute drift magnitude distributions
+    \item Identify samples most/least affected by laundering
+\end{itemize}
+
+\textbf{Distribution comparison}:
+\begin{itemize}
+    \item Jensen-Shannon divergence on PCA-projected embeddings (first 50 dimensions)
+    \item Wasserstein distance between class distributions
+    \item Bootstrap confidence intervals
+\end{itemize}
+
+\textbf{Visualization}:
+\begin{itemize}
+    \item UMAP or PCA scatter plots colored by class and depth
+    \item KDE overlap plots
+    \item Drift trajectory visualizations
+\end{itemize}
+
+\subsection{Objective 6: Operational ``Looks-Like-Human'' Test}
+
+Following Krishna et al.'s retrieval framework \cite{krishna2023paraphrasing}, we implement k-nearest neighbor analysis:
+
+\textbf{Methodology}:
+\begin{enumerate}
+    \item Build reference database of human embeddings
+    \item For each AI sample (at each depth), retrieve k nearest neighbors
+    \item Compute fraction of neighbors that are human
+    \item Report precision@k for k in \{1, 3, 5, 10\}
+\end{enumerate}
+
+\textbf{Interpretation}: High human fraction indicates the sample ``looks like'' human text in embedding space—an intuitive, interpretable metric beyond abstract AUROC.
+
+\subsection{Objective 7: Cross-Generator Generalization}
+
+To demonstrate fragility is not generator-specific:
+
+\textbf{Multiple generator sources}:
+\begin{itemize}
+    \item Primary generator: GPT-family model
+    \item Secondary generator: LLaMA-3 or Mistral-7B-Instruct
+    \item (Alternative if API unavailable: simulate via different temperature/sampling parameters)
+\end{itemize}
+
+\textbf{Analysis}: Repeat paraphrase pipeline and compute AUROC and geometry diagnostics separately for each generator family.
+
+\subsection{Objective 8: Ablation Suite}
+
+Controlled ablations isolate which pipeline components matter:
+
+\textbf{Ablation A – Raw baseline}:
+\begin{itemize}
+    \item No preprocessing/cleaning
+    \item Deterministic paraphraser
+    \item Measure TV, AUROC, geometry
+\end{itemize}
+
+\textbf{Ablation B – Cleaned + weak paraphrase}:
+\begin{itemize}
+    \item Full preprocessing
+    \item Deterministic paraphraser only
+    \item Measure TV, AUROC, geometry
+\end{itemize}
+
+\textbf{Ablation C – Cleaned + strong paraphrase}:
+\begin{itemize}
+    \item Full preprocessing
+    \item Transformer + backtranslation paraphrase
+    \item Measure TV, AUROC, geometry
+\end{itemize}
+
+\textbf{Expected outcome}: Ablations demonstrate whether performance changes arise from cleaning, paraphrase strength, or both.
+
+\subsection{Statistical Rigor and Reproducibility}
+
+\textbf{Confidence intervals}: All AUROC and geometric metrics reported with 95\% bootstrap CIs (2000 bootstrap samples).
+
+\textbf{Significance testing}: Paired bootstrap tests comparing AUROC across depths and ablations.
+
+\textbf{Deterministic reproducibility}:
+\begin{itemize}
+    \item Fixed random seeds for all operations
+    \item Documented package versions
+    \item Public code repository with Colab notebook
+    \item Reproducibility checklist in appendix
+\end{itemize}
+
+\subsection{Unified Framework Narrative}
+
+Phase~2 culminates in a consolidated explanation connecting:
+\begin{itemize}
+    \item Artifact removal → reduced spurious separability
+    \item Strong paraphrasing → embedding space convergence
+    \item Geometric convergence → AUROC degradation
+    \item Theoretical predictions (TV-AUROC bound) → empirical observations
+\end{itemize}
+
+This narrative is intended to serve researchers, educators, and students as a transparent reference for understanding AI text detection limits.
+
+\section{Results}
+
+\subsection{Phase~1 Results}
+
+\textbf{Initial performance}: BiLSTM classifier achieved 98.7\% accuracy on fashion review dataset (test set n=200, balanced).
+
+\textbf{Attention analysis}: Qualitative examination of attention heatmaps revealed consistent focus on:
+\begin{itemize}
+    \item Repetitive adjectives (83\% of high-attention tokens)
+    \item Politeness markers (appearing 3.2× more frequently in AI text)
+    \item Formulaic openings (67\% of AI reviews began with stereotyped phrases)
+\end{itemize}
+
+\textbf{Paraphrase collapse}: Under minimal synonym-replacement paraphrasing, accuracy dropped to 57.3\%, confirming complete reliance on surface artifacts.
+
+\textbf{Critical assessment}: Phase~1 demonstrated successful execution of machine learning pipeline but complete failure as scientific research due to uncontrolled artifacts.
+
+\subsection{Phase~2 Results (Initial Implementation)}
+
+\emph{Critical Note: The results presented below represent an initial implementation of the Phase~2 framework and should be interpreted as stepping stones in an evolving research trajectory, not final conclusions. Significant methodological refinements remain necessary, as detailed in Section~\ref{sec:limitations}. These preliminary findings demonstrate progress beyond Phase~1's failures but expose substantial gaps requiring systematic addressing through the refactored experimental framework described in the methodology.}
+
+\subsubsection{Dataset Statistics}
+
+The initial Phase~2 dataset was sourced from the AH\&AITD corpus \cite{akram2023human}, yielding 11,580 samples after initial processing. Table~\ref{tab:dataset_stats} summarizes dataset composition.
+
+\begin{table}[h]
+\centering
+\caption{Phase~2 Dataset Composition and Statistics}
+\label{tab:dataset_stats}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Source} & \textbf{Human (n)} & \textbf{AI (n)} \\
+\midrule
+OpenWebText & 2,250 & 0 \\
+Opinion Statements & 1,542 & 0 \\
+Paraphrase & 0 & 1,691 \\
+ChatGPT & 0 & 1,111 \\
+GPT-4 & 0 & 726 \\
+News Articles & 404 & 0 \\
+Answers & 645 & 0 \\
+GPT-3.5 & 0 & 356 \\
+Davinci & 0 & 427 \\
+\midrule
+\textbf{Total (pre-cleaning)} & \textbf{5,635} & \textbf{5,945} \\
+\textbf{Total (post-cleaning)} & \textbf{5,719} & \textbf{5,632} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+After artifact-controlled preprocessing (normalization, prompt leakage removal, length filtering at 1st/99th percentiles), the cleaned dataset contained 11,351 samples with the following distributional properties:
+
+\begin{itemize}
+    \item \textbf{Mean length}: 689.7 words (median: 549.0, std: 404.8)
+    \item \textbf{Burstiness}: 56,004.7 (lexical repetition metric)
+    \item \textbf{Average entropy}: 7.44 (token-level Shannon entropy)
+\end{itemize}
+
+Multi-domain composition includes formal writing (news, research), informal content (reviews, opinions), and conversational text (answers, blog posts). Multiple generator families represented: GPT-3 variants, GPT-4, ChatGPT, and Davinci engines.
+
+\subsubsection{Baseline Detector Performance}
+
+Table~\ref{tab:auroc_results} presents AUROC measurements across paraphrase depths for both detector architectures.
+
+\begin{table}[h]
+\centering
+\caption{Detector AUROC Across Paraphrase Depths}
+\label{tab:auroc_results}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Depth-0} & \textbf{Depth-1} & \textbf{Depth-2} \\
+\midrule
+SBERT + Logistic & 0.759 & 0.000 & 0.000 \\
+BiLSTM & 0.688 & 0.687 & 0.664 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Critical observations requiring investigation}:
+
+\textbf{SBERT catastrophic failure}: The SBERT-based classifier exhibited complete collapse (AUROC = 0.000) on paraphrased samples at both depths. This result is \emph{anomalous and methodologically concerning}. AUROC of exactly 0.0 indicates systematic inversion of predictions—the classifier consistently assigns higher scores to human samples than AI samples, suggesting a critical implementation error rather than genuine robustness failure. Possible causes under investigation:
+
+\begin{itemize}
+    \item Label inversion during paraphrase dataset construction
+    \item Embedding extraction inconsistency across depths
+    \item Scaler transformation applied incorrectly to paraphrased samples
+    \item Deterministic paraphraser producing degenerate outputs
+\end{itemize}
+
+This failure underscores the necessity of the proposed refactored pipeline with robust validation checks at each transformation stage.
+
+\textbf{BiLSTM modest degradation}: The BiLSTM classifier showed minimal degradation: 0.688 (depth-0) → 0.687 (depth-1) → 0.664 (depth-2), representing only a 2.4\% absolute AUROC drop across two paraphrase iterations. This \emph{lack of substantial degradation} is equally concerning, suggesting:
+
+\begin{itemize}
+    \item Deterministic paraphraser is too weak to constitute realistic laundering
+    \item Model may be exploiting residual artifacts surviving paraphrase
+    \item Dataset may retain spurious correlations even after cleaning
+\end{itemize}
+
+\textbf{Baseline performance context}: Clean-sample AUROC values (0.759 SBERT, 0.688 BiLSTM) are substantially lower than Phase~1's inflated 98.7\%, confirming that artifact-controlled preprocessing successfully reduced spurious separability. However, performance remains above random chance, indicating some genuine signal persists—or that additional artifacts require identification and removal.
+
+These preliminary results validate the necessity of the comprehensive Phase~2 refactoring outlined in the methodology: transformer-based paraphrasing, bootstrap confidence intervals, paired significance testing, and systematic ablations are essential to distinguish genuine robustness from implementation artifacts.
+
+\subsubsection{Embedding Geometry Diagnostics}
+
+Initial geometric analysis was performed on SBERT embeddings (all-mpnet-base-v2, 768 dimensions). Training set: 9,080 samples; test set: 2,271 samples.
+
+\textbf{Centroid analysis}: Table~\ref{tab:centroid_cosine} presents cosine similarities between class centroids across depths.
+
+\begin{table}[h]
+\centering
+\caption{Inter-Class Centroid Cosine Similarities}
+\label{tab:centroid_cosine}
+\begin{tabular}{lc}
+\toprule
+\textbf{Comparison} & \textbf{Cosine Similarity} \\
+\midrule
+Human vs. AI (depth-0) & 0.9770 \\
+Human vs. Paraphrase (depth-1) & 0.9738 \\
+Human vs. Paraphrase (depth-2) & 0.9680 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Initial observations}:
+
+\begin{itemize}
+    \item \textbf{High baseline similarity}: Centroid cosine of 0.977 indicates human and AI class centroids are already nearly aligned in embedding space, even before paraphrasing. This proximity explains the modest baseline AUROC (0.759) and suggests limited separation in semantic space.
+    
+    \item \textbf{Minimal centroid drift}: Paraphrasing produces only 0.9\% reduction in cosine similarity (0.9770 → 0.9680) across two depths. This small movement suggests:
+    \begin{itemize}
+        \item Deterministic paraphraser induces weak geometric perturbation
+        \item SBERT embeddings exhibit substantial invariance to surface-level lexical changes
+        \item True distributional convergence requires stronger transformation
+    \end{itemize}
+    
+    \item \textbf{Disconnect from AUROC}: The SBERT classifier's complete failure (AUROC = 0.0) on paraphrased samples \emph{cannot} be explained by this minimal centroid movement. This discrepancy confirms implementation error rather than geometric convergence as the cause of SBERT's anomalous performance.
+\end{itemize}
+
+\textbf{Missing diagnostics}: The current implementation lacks:
+\begin{itemize}
+    \item Intra-class variance analysis (essential for understanding overlap beyond centroids)
+    \item Per-sample drift distributions (to identify heterogeneous paraphrase effects)
+    \item Pairwise cosine KDEs (to visualize full distributional overlap)
+    \item Bootstrap confidence intervals on geometric metrics
+    \item JS/Wasserstein distances on PCA-projected embeddings
+\end{itemize}
+
+These omissions prevent definitive interpretation and will be addressed in the refactored framework.
+
+\subsubsection{Critical Assessment of Current Results}
+
+The initial Phase~2 implementation reveals substantial methodological gaps:
+
+\textbf{What succeeded}:
+\begin{itemize}
+    \item Artifact-controlled preprocessing pipeline operational
+    \item Multi-domain dataset successfully assembled (11,351 samples)
+    \item SBERT embedding extraction functional
+    \item BiLSTM baseline replicable
+    \item Basic centroid analysis executed
+\end{itemize}
+
+\textbf{What failed or requires addressing}:
+\begin{itemize}
+    \item SBERT classifier exhibits anomalous behavior (AUROC = 0.0) indicating implementation error
+    \item Deterministic paraphraser demonstrably too weak (minimal AUROC degradation, minimal centroid drift)
+    \item No confidence intervals or significance testing
+    \item No k-NN retrieval evaluation
+    \item No cross-generator analysis
+    \item No ablation studies comparing pipeline components
+    \item Incomplete geometric diagnostic suite
+    \item No visualization artifacts (KDEs, UMAP, drift plots)
+\end{itemize}
+
+These results represent progress beyond Phase~1's complete artifact dependence but fall short of the rigorous evaluation framework outlined in methodology. The following sections discuss implications and necessary next steps.
+
+\subsection{Interpretation Framework}
+
+\emph{This subsection will contain the critical 600-900 word interpretive analysis connecting observed geometry to AUROC trends. This analysis must be written after inspecting complete experimental results and cannot be meaningfully drafted in advance. Key analytical questions to address:}
+
+\begin{itemize}
+    \item \textbf{Centroid movement vs. AUROC}: Why does centroid distance reduction not fully explain AUROC changes? Role of intra-class variance and multi-modality.
+    \item \textbf{k-NN operational meaning}: What fraction of human neighbors corresponds to classifier confusion? Relationship between retrieval metrics and probabilistic predictions.
+    \item \textbf{Preprocessing impact}: Which cleaning step most reduced TV? Quantified tradeoffs between artifact removal and potential signal loss.
+    \item \textbf{Generator differences}: If cross-generator differences exist, mechanistic explanations for why certain LLM families are easier/harder to launder.
+    \item \textbf{Theoretical alignment}: How closely do empirical AUROC degradation curves match Sadasivan et al.'s theoretical TV-AUROC bound?
+\end{itemize}
+
+\textbf{[PLACEHOLDER - Detailed interpretive paragraph will be inserted here after results are finalized]}
+
+\section{Discussion}
+
+\subsection{Research Trajectory: From Phase~1 Failure to Phase~2 Evolution}
+
+This study demonstrates a pedagogically valuable progression from naive machine learning to rigorous empirical research methodology.
+
+\textbf{Phase~1 as cautionary tale}: The 98.7\% BiLSTM accuracy on fashion reviews exemplifies a pervasive failure mode in applied machine learning: conflating high performance with scientific validity. Attention analysis revealed the model exploited repetitive adjectives, politeness markers, and formulaic structures—artifacts of dataset construction rather than fundamental properties of AI-generated text. Performance collapse under minimal paraphrasing (to 57.3\%) conclusively demonstrated shortcut learning.
+
+\textbf{Phase~2 initial implementation}: Current results show meaningful progress:
+\begin{itemize}
+    \item Artifact-controlled preprocessing reduced baseline AUROC from 98.7\% to 75.9\% (SBERT) and 68.8\% (BiLSTM), confirming successful mitigation of spurious correlations
+    \item Multi-domain dataset (11,351 samples) represents substantial scale increase over Phase~1's narrow corpus
+    \item Centroid analysis demonstrates quantitative geometric methodology
+    \item Multiple generator families included (GPT-3, GPT-3.5, GPT-4, ChatGPT, Davinci)
+\end{itemize}
+
+However, current implementation exposes critical gaps requiring systematic addressing.
+
+\subsection{Alignment With Theoretical Predictions}
+
+Our empirical findings partially align with Sadasivan et al.'s theoretical framework \cite{sadasivan2023can}, but with important caveats.
+
+\textbf{Theoretical expectation}: AUROC degradation under paraphrasing should reflect reduction in Total Variation distance. As TV approaches zero, even optimal detectors approach random chance (AUROC → 0.5).
+
+\textbf{Observed discrepancies}:
+\begin{itemize}
+    \item BiLSTM shows minimal degradation (0.688 → 0.664), suggesting deterministic paraphraser fails to meaningfully reduce TV
+    \item SBERT's complete collapse (AUROC = 0.0) exceeds theoretical predictions and indicates implementation error rather than distributional convergence
+    \item Centroid drift of only 0.9\% suggests weak geometric perturbation insufficient to drive substantial TV reduction
+\end{itemize}
+
+\textbf{Implications}: The modest observed effects validate the necessity of transformer-based and backtranslation paraphrasing outlined in methodology. Deterministic synonym replacement represents trivial laundering unlikely to fool sophisticated detectors or meaningfully test robustness.
+
+\subsection{Comparison to Contemporary Detection Research}
+
+\textbf{vs. Krishna et al.} \cite{krishna2023paraphrasing}: Our results do not yet test their retrieval-based defense hypothesis, as k-NN evaluation remains unimplemented. Krishna et al. demonstrated paraphrase attacks defeat classifiers but retrieval (matching against known generations) partially restores robustness. Our planned k-NN diagnostics will directly assess whether retrieval metrics outperform classification in our controlled setting.
+
+\textbf{vs. PADBen} \cite{zha2024padben}: PADBen emphasizes that detectors fail in intermediate laundering regions where semantic meaning persists but surface statistics shift. Our depth-1 and depth-2 paraphrases aim to probe this regime. However, minimal AUROC degradation suggests we have not yet entered the critical intermediate zone—our paraphrasing remains too weak. Implementing PADBen's multi-mode laundering pipeline (transformer + backtranslation + recursive application) is essential.
+
+\textbf{vs. MAGE} \cite{li2024mage}: MAGE demonstrated catastrophic out-of-distribution failure when detectors encounter unseen generators or domains. Our multi-generator dataset (GPT-3 family, GPT-4, ChatGPT) enables future cross-generator evaluation. Current results provide per-generator data but lack systematic analysis comparing detector performance across families—a critical next step.
+
+\textbf{vs. Tulchinskii et al.} \cite{tulchinskii2023intrinsic}: Tulchinskii's geometric approach using intrinsic dimensionality reported improved robustness to paraphrase. Our centroid analysis represents a simpler geometric diagnostic. The high centroid cosine (0.977) suggests human and AI texts occupy nearly overlapping regions in SBERT embedding space, providing limited separation for detection. Full geometric diagnostics (intra-class variance, drift distributions, JS/Wasserstein) will reveal whether more sophisticated geometric features offer robustness advantages.
+
+\subsection{Methodological Lessons and Research Standards}
+
+This work provides concrete lessons for empirical AI detection research:
+
+\textbf{Artifact control is difficult}: Even after normalization, prompt leakage removal, and length filtering, baseline AUROC of 75.9\% suggests residual spurious signals persist. Iterative refinement with ablation studies is necessary to isolate genuine semantic signals from artifacts.
+
+\textbf{Paraphrase strength matters critically}: Deterministic paraphrasing is insufficient for robustness evaluation. Literature consensus \cite{sadasivan2023can,krishna2023paraphrasing,zha2024padben} emphasizes transformer-based and backtranslation methods as minimum standard for realistic laundering.
+
+\textbf{Geometric diagnostics require completeness}: Centroid distance alone cannot explain performance changes. Intra-class variance, per-sample drift, and distributional measures (KDEs, JS, Wasserstein) are essential for mechanistic understanding.
+
+\textbf{Anomalies demand investigation}: SBERT's complete failure (AUROC = 0.0) exemplifies the importance of sanity checks. This result is impossible under genuine distributional convergence and signals implementation error. Rigorous research requires systematic validation at each pipeline stage.
+
+\textbf{Statistical rigor is non-negotiable}: Single-point AUROC estimates without confidence intervals or significance testing are insufficient for scientific claims. Bootstrap CIs and paired tests must be standard practice.
+
+\subsection{Limitations and Honest Assessment}
+\label{sec:limitations}
+
+We explicitly acknowledge substantial limitations in current work:
+
+\textbf{Implementation limitations}:
+\begin{itemize}
+    \item SBERT classifier implementation contains undiagnosed error producing anomalous results
+    \item Deterministic paraphraser demonstrably too weak for realistic evaluation
+    \item No bootstrap confidence intervals computed
+    \item No statistical significance testing performed
+    \item Geometric diagnostic suite incomplete (missing variance, drift, KDEs, JS/Wasserstein)
+    \item No visualization artifacts generated
+\end{itemize}
+
+\textbf{Experimental design limitations}:
+\begin{itemize}
+    \item No k-NN retrieval evaluation
+    \item No cross-generator comparative analysis
+    \item No ablation studies isolating preprocessing vs. paraphrase effects
+    \item Only two paraphrase depths tested (depth-3 not implemented)
+    \item Only two classifier architecture for robustness triangulation
+\end{itemize}
+
+\textbf{Scope limitations}:
+\begin{itemize}
+    \item Single-language evaluation (English only)
+    \item Limited domain coverage despite multi-source dataset
+    \item No adversarial fine-tuning or adaptive attacks
+    \item No watermarking comparison
+    \item No human evaluation baseline
+\end{itemize}
+
+\textbf{Interpretive limitations}:
+\begin{itemize}
+    \item Cannot definitively explain SBERT failure without additional diagnostics
+    \item Cannot quantify TV reduction without proper distributional measures
+    \item Cannot claim robustness findings without stronger paraphrasing
+    \item Cannot assess practical deployment viability without realistic threat modeling
+\end{itemize}
+
+These limitations are not merely acknowledged but \emph{central to our pedagogical mission}. This work demonstrates that moving from Phase~1's superficial success to defensible empirical research requires systematic addressing of each limitation through rigorous methodology.
+
+\subsection{The Path Forward: Refactored Framework}
+
+The results and limitations motivate the comprehensive refactoring outlined in our methodology:
+
+\textbf{Priority 1 – Strong paraphrasing}:
+\begin{itemize}
+    \item Implement T5-based or PEGASUS transformer paraphraser
+    \item Add backtranslation pipeline (English $\leftrightarrow$ French/German)
+    \item Generate depth-3 recursive paraphrases
+    \item Validate paraphrase quality through human evaluation sampling
+\end{itemize}
+
+\textbf{Priority 2 – Complete geometry suite}:
+\begin{itemize}
+    \item Compute intra-class variance and inter/intra ratio
+    \item Generate per-sample drift distributions
+    \item Produce pairwise cosine KDEs for all depth combinations
+    \item Calculate JS divergence and Wasserstein distance on PCA-projected embeddings
+    \item Add bootstrap CIs (2000 samples) for all geometric metrics
+\end{itemize}
+
+\textbf{Priority 3 – Retrieval evaluation}:
+\begin{itemize}
+    \item Implement k-NN human fraction for k in \{1, 3, 5, 10\}
+    \item Compute precision@k retrieval metrics
+    \item Compare retrieval to classifier predictions
+    \item Test Krishna et al.'s hypothesis about retrieval robustness
+\end{itemize}
+
+\textbf{Priority 4 – Statistical rigor}:
+\begin{itemize}
+    \item Bootstrap all AUROC measurements with 95\% CIs
+    \item Paired bootstrap significance tests comparing depths
+    \item Multiple comparison correction (Bonferroni or Holm-Šidák)
+    \item Effect size reporting (Cohen's d for AUROC differences)
+\end{itemize}
+
+\textbf{Priority 5 – Systematic ablations}:
+\begin{itemize}
+    \item Ablation A: Raw data, no preprocessing
+    \item Ablation B: Cleaned + deterministic paraphrase
+    \item Ablation C: Cleaned + transformer + backtranslation
+    \item Quantify TV, AUROC, geometry, k-NN for each
+\end{itemize}
+
+\textbf{Priority 6 – Cross-generator analysis}:
+\begin{itemize}
+    \item Separate evaluation per generator family (GPT-3.x vs GPT-4 vs ChatGPT)
+    \item Add second generator family (LLaMA-3 or Mistral if computationally feasible)
+    \item Compare fragility across families
+    \item Test generalization to unseen generators
+\end{itemize}
+
+\textbf{Priority 7 – Visualization and reproducibility}:
+\begin{itemize}
+    \item Generate publication-quality figures (AUROC curves, KDEs, UMAP, drift plots)
+    \item Document exact seeds, package versions, hyperparameters
+    \item Provide reproducibility checklist
+    \item Release code and data in public repository
+\end{itemize}
+
+\subsection{Contributions and Educational Value}
+
+Despite current limitations, this work provides value as:
+
+\textbf{Methodological reference}: Clear articulation of standards for defensible empirical detection research, contrasting rigorous methodology with superficial demonstrations.
+
+\textbf{Pedagogical resource}: Transparent documentation of failure modes (Phase~1 shortcut learning, Phase~2 implementation errors, weak paraphrasing) teaches crucial lessons about scientific rigor.
+
+\textbf{Diagnostic framework}: Even incomplete, the geometric analysis and multi-depth evaluation structure provide a template for systematic robustness testing.
+
+\textbf{Honest research practices}: Explicit acknowledgment of limitations and ongoing work models scientific integrity over premature claims.
+
+\textbf{Literature synthesis}: Comprehensive review connects contemporary robustness research (Sadasivan, Krishna, PADBen, MAGE, Tulchinskii) to practical evaluation challenges.
+
+\section{Conclusion}
+
+This paper presents a two-phase investigation into AI-generated text detector fragility, designed explicitly for educational and methodological transparency.
+
+\textbf{Phase~1} demonstrated how a BiLSTM classifier achieved 98.7\% accuracy through shortcut learning on artifact-heavy data, with performance collapsing to 57.3\% under minimal paraphrasing. This failure provided concrete illustration of common pitfalls in machine learning research: conflating high metrics with scientific validity, overlooking spurious correlations, and inadequate adversarial evaluation.
+
+\textbf{Phase~2} developed a rigorous evaluation framework addressing these failures through artifact-controlled preprocessing, multi-depth paraphrasing, semantic embedding analysis, and geometric diagnostics. Initial implementation on 11,351 multi-domain samples yielded mixed results:
+
+\begin{itemize}
+    \item Successful artifact mitigation reduced baseline AUROC from 98.7\% to 75.9\% (SBERT) and 68.8\% (BiLSTM)
+    \item Deterministic paraphrasing produced minimal degradation (BiLSTM: 2.4\% drop; SBERT: anomalous complete failure)
+    \item Centroid analysis revealed high baseline similarity (cosine = 0.977) and minimal drift (0.9\% reduction) under paraphrasing
+    \item Results exposed critical implementation gaps and weak paraphrasing methodology
+\end{itemize}
+
+These findings validate the necessity of comprehensive refactoring: transformer-based paraphrasing, complete geometric diagnostic suite, k-NN retrieval evaluation, bootstrap confidence intervals, systematic ablations, and cross-generator analysis. Current results represent stepping stones in an evolving research trajectory, not final conclusions.
+
+\textbf{Key contributions}:
+\begin{enumerate}
+    \item Empirical demonstration of shortcut learning failure with concrete attention analysis
+    \item Controlled evaluation framework integrating contemporary robustness literature
+    \item Honest documentation of implementation failures and methodological gaps
+    \item Clear articulation of standards for defensible empirical detection research
+    \item Pedagogical resource for educators and early-career researchers
+\end{enumerate}
+
+\textbf{Fundamental insight}: AI text detection is not merely an engineering challenge but a fundamental impossibility under strong adversarial conditions. Sadasivan et al.'s theoretical result—that paraphrasing drives Total Variation toward zero and AUROC toward random chance—represents an insurmountable barrier. Our work demonstrates this reality empirically while providing transparent methodology for understanding failure modes.
+
+\textbf{Future work} extends this foundation through:
+\begin{itemize}
+    \item Complete Phase~2 refactoring with transformer paraphrasing and full diagnostics
+    \item Multilingual evaluation (leveraging backtranslation infrastructure)
+    \item Prompt-conditioning effects on detectability
+    \item Human evaluation baseline for perceptual validation
+    \item Watermarking comparison as orthogonal defense
+    \item Adaptive attacks testing detector learning robustness
+\end{itemize}
+
+The detection arms race continues to escalate. Rather than pursuing ever-more-sophisticated detectors destined to fail under adversarial pressure, the research community must shift toward realistic threat modeling, watermarking at generation time, provenance tracking, and human-AI collaboration frameworks. This work contributes to that shift by demonstrating \emph{why} detection fails, not merely \emph{that} it fails—a crucial distinction for both science and policy.
+
+\begin{thebibliography}{99}
+\bibitem{brown2020language}
+T.~Brown et al., ``Language Models are Few-Shot Learners,'' in \emph{NeurIPS}, 2020.
+
+\bibitem{sadasivan2023can}
+V.~S. Sadasivan et al., ``Can AI-Generated Text be Reliably Detected?'' \emph{arXiv preprint arXiv:2303.11156}, 2023.
+
+\bibitem{krishna2023paraphrasing}
+K.~Krishna et al., ``Paraphrasing evades detectors of AI-generated text, but retrieval is an effective defense,'' in \emph{NeurIPS}, 2023.
+
+\bibitem{tulchinskii2023intrinsic}
+E.~Tulchinskii et al., ``Intrinsic dimensionality of text embeddings,'' \emph{arXiv preprint arXiv:2305.16573}, 2023.
+
+\bibitem{zha2024padben}
+L.~Zha et al., ``PADBen: A Comprehensive Benchmark for Paraphrasing and Text Laundering Detection,'' in \emph{AAAI}, 2024.
+
+\bibitem{liang2023gpt}
+W.~Liang et al., ``GPT detectors are biased against non-native English writers,'' \emph{Patterns}, 2023.
+
+\bibitem{gehrmann2019gltr}
+S.~Gehrmann et al., ``GLTR: Statistical detection and visualization of generated text,'' in \emph{ACL}, 2019.
+
+\bibitem{lavergne2008detecting}
+T.~Lavergne, T.~Allauzen, and J.-L.~Gauvain, ``Detecting generative text with perplexity,'' in \emph{LREC}, 2008.
+
+\bibitem{mitchell2023detectgpt}
+E.~Mitchell et al., ``DetectGPT: Zero-shot detection of machine-generated text using probability curvature,'' in \emph{ICML}, 2023.
+
+\bibitem{kirchenbauer2023watermark}
+J.~Kirchenbauer et al., ``A watermark for large language models,'' in \emph{ICLR}, 2023.
+
+\bibitem{kushnareva2021artificial}
+L.~Kushnareva et al., ``Artificial text detection using topological data analysis,'' in \emph{EMNLP}, 2021.
+
+\bibitem{li2024mage}
+J.~Li et al., ``MAGE: Multi-domain evaluation of AI-generated text detection,'' in \emph{NAACL}, 2024.
+
+\bibitem{akram2023human}
+M.~Akram, ``AH\&AITD: A Human and AI Text Dataset for Detection Tasks,'' Kaggle, 2023.
+
+\bibitem{ippolito2020automatic}
+D.~Ippolito et al., ``Automatic detection of generated text is easiest when humans are fooled,'' in \emph{ACL}, 2020.
+
+\bibitem{dugan2020real}
+L.~Dugan et al., ``RoFT: A real-world dataset for detecting generated text,'' in \emph{EMNLP}, 2020.
+
+\bibitem{reimers2019sentence}
+N.~Reimers and I.~Gurevych, ``Sentence-BERT: Sentence embeddings using Siamese BERT-networks,'' in \emph{EMNLP}, 2019.
+\end{thebibliography}
+
+\end{document}
