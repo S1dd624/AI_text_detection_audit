@@ -1,0 +1,215 @@
+Abstract— The Emotion-Aware Chatbot is an AI-driven mental
+health companion designed to offer emotional support to
+individuals experiencing loneliness, stress, or depressive
+tendencies, particularly students at risk of suicide. By integrating
+facial emotion detection using OpenCV with a sentiment-aware
+chatbot built on the Chatterbot framework, the system identifies
+a user’s emotional state in real-time and responds empathetically
+to their needs. The chatbot not only engages in natural language
+conversation but also adapts its responses based on the user’s
+visual and textual sentiment cues, creating a more personalized
+and comforting interaction. Built using Flask for web
+integration, the system is lightweight and deployable on local or
+institutional servers. It serves as a virtual mental health assistant
+that can be integrated into therapy centers, schools, universities,
+and smart wellness platforms. Future enhancements include
+multilingual support, wearable integration, and emergency alert
+systems via APIs like Twilio. This chatbot represents a scalable,
+proactive approach to mental wellness and suicide prevention
+using AI.
+
+Mental health disorders, particularly Social Anxiety
+Disorder (SAD) and depression, are emerging as critical
+public health concerns in the modern digital age. The World
+Health Organization (WHO) classifies mental disorders as
+conditions characterized by disturbances in thinking, emotion
+regulation, or behavior, often coupled with distress and
+impaired functioning [1]. SAD affects millions globally, with
+an estimated 12.1% lifetime prevalence [2], manifesting as
+an intense fear of social interactions and being negatively
+evaluated. Despite the growing need, over 75%, that is more
+than three fourths of people in countries that are in the low-
+middle income range do not receive any treatment for mental
+health issues due to social stigma, lack of accessibility, or
+affordability [3].
+
+To address these challenges, Emotion-Aware Chatbots offer
+a transformative solution by bridging the gap between
+individuals and mental health support. These AI-driven
+systems employ natural language processing (NLP),
+computer vision, and deep learning to interpret user
+sentiment and facial expressions in real-time, enabling them
+to deliver personalized emotional support. This project
+presents a Flask-based web application that integrates
+OpenCV for emotion detection and Chatterbot for
+conversational AI, supported by a user database for
+emotional trend tracking. The chatbot can understand
+emotional states through both text and visual cues and
+responding empathetically, simulating a human-like
+supportive interaction. Through continuous use, it helps detect
+emotional deterioration patterns and can serve as a frontline
+tool for early intervention and emotional self-awareness,
+particularly in academic, clinical, or personal environments.
+This approach not only reduces the burden on healthcare
+infrastructure but also provides a scalable and stigma-free
+means of support [4].
+Recent advancements in affective computing and human-
+computer interaction (HCI) have further enabled machines to
+understand and respond to human emotions with increasing
+precision. Emotional intelligence in AI systems is now being
+used not only in commercial domains but also in mental health
+interventions, where responsiveness to non-verbal cues like
+facial expressions plays a crucial role [5]. Chatbots equipped
+with emotion-sensing capabilities have demonstrated
+promising results in reducing feelings of isolation, encouraging
+emotional expression, and guiding users toward helpful
+resources [6]. Moreover, the integration of AI with healthcare
+tools aligns with the global push towards tele-mental health,
+especially post-COVID-19, where remote yet meaningful
+support became essential. By combining text-based sentiment
+analysis with visual emotion recognition, our chatbot system
+represents a hybrid model capable of continuous emotional
+monitoring and intervention, making it a potential digital ally
+for those battling emotional distress in silence.
+Page 3 of 8 - AI Writing Submission Submission ID trn:oid:::1:3250491739
+Page 3 of 8 - AI Writing Submission Submission ID trn
+Ghosh et al. [7] made an empathetic dialogue generation
+model, aiming to mimic human empathy , paving the way for
+more emotionally intelligent chatbots.
+In the domain of facial emotion recognition, Molla Hosseini
+et al. [8] introduced a deep neural network architecture
+trained on large-scale datasets like FER-2013 and CK+,
+which achieved human-level accuracy in recognizing basic
+emotional expressions. Their study emphasized the
+robustness of convolutional architectures in classifying
+complex facial cues, an essential foundation for our real-
+time detection module.
+Barros et al. [9] explored the combination of facial and
+voice data in recognizing affective states in a social robot
+setting. Their multi-modal fusion technique improved the
+accuracy of emotion classification and responsiveness. This
+highlights the value of integrating multiple sensory
+modalities, a concept echoed in our project’s use of both
+visual and textual emotion inputs.
+On the mental health side, Chancellor et al. [10] conducted
+a comprehensive analysis of language patterns, to see signs
+of suicidal tendencies or depression in posts made on social
+media. Their research supports the use of Natural
+Language Processing (NLP) in emotional signals from
+everyday communication, validating the approach of
+sentiment-based analysis in our chatbot.
+Fitzpatrick et al. [11] evaluated the effectiveness of
+“Woebot,” a chatbot built on principles of Cognitive
+Behavioural Therapy (CBT). Through randomized
+controlled trials, the chatbot demonstrated a statistically
+significant reduction in depression symptoms over two
+weeks. This study affirms that AI-driven mental health
+interventions, when designed thoughtfully, can have
+tangible therapeutic outcomes.
+In more recent work, Majumder et al. [12] developed an
+emotion-aware conversational agent capable of altering its
+dialogue strategy based on both sentiment and personality
+traits of the user. Their results showed that incorporating
+affective cues significantly increased user satisfaction and
+perceived empathy, aligning with the goals of our
+emotionally adaptive chatbot.
+Finally, Zhong et al. [13] investigated the deployment of
+explainable AI in healthcare chatbots. Their system
+integrated SHAP and attention-based visualization
+techniques to clarify decision-making processes in AI
+predictions. This supports our adoption of XAI components
+like SHAP and LIME to ensure interpretability in
+emotionally sensitive scenarios.
+III. MATERIALS AND METHODS
+A. Dataset
+The proposed emotion-aware chatbot system is built upon a
+multi-modal dataset designed to simulate real-world
+emotional interactions. The dataset comprises two
+synchronized data types
+Our
+preprocessing strategy is distinctly tailored to the nature of the
+data, encompassing both textual and visual components. For
+textual data, user inputs are first normalized by converting all
+characters to lowercase, stripping punctuation, and removing
+stop words, which helps reduce noise and standardize the text
+for further analysis. We then apply tokenization using the
+Natural Language Toolkit (NLTK) to segment the text into
+individual words or meaningful units, facilitating a structured
+representation of the data. These tokens are transformed into
+numerical vectors using Term Frequency–Inverse Document
+Frequency (TF-IDF), a widely used technique that weighs the
+importance of a term in a document relative to its occurrence in
+the entire corpus. The model is thus able to diffrentiate relevant
+emotional cues while downplaying ubiquitous or less
+informative words [16]. The resulting TF-IDF vectors are stored
+and utilized as input for classifier training.
+For visual data, real-time frames are captured through a webcam
+using the OpenCV library. 
+Altogether, these preprocessing steps enhance model
+robustness, reduce bias, and ensure consistency across
+modalities while minimizing the risk of data leakage.
+Fig. 2. Emotion-Aware Chatbot UI
+C. Feature Selection
+Feature selection is a crucial step in building efficient and
+interpretable machine learning models, especially when
+dealing with high-dimensional data in multimodal emotion
+recognition systems. In this study, tailored feature selection
+approaches were employed for both textual and visual
+emotion domains to reduce computational complexity,
+enhance interpretability, and improve classifier performance.
+By systematically identifying and retaining only the most
+relevant features, the models became more robust and less
+prone to overfitting, ultimately leading to more accurate
+emotional predictions.
+For the textual domain, the initial representation of data was
+achieved through Term Frequency-Inverse Document
+Frequency (TF-IDF) vectorization, which converts raw text into
+a numerical format while preserving the relative importance of
+each word in the corpus. Given the large number of generated
+features, we employed the Chi-square (χ²) test to evaluate the
+independence between each word and the sentiment label
+(positive or negative). Features with higher Chi-square scores
+indicated a stronger relationship with the target classes and were
+therefore retained. 
+Overall, these combined
+strategies contributed to a refined, multimodal emotion
+recognition pipeline with improved transparency and predictive
+power.
+we conducted a multi-faceted analysis that included both
+quantitative metrics (classification accuracy, F1-score, etc.)
+and qualitative feedback from real users. The chatbot's
+architecture, which integrates real-time emotion recognition
+from facial expressions and sentiment classification from user
+messages, was tested using a combination of labeled datasets
+and interactive simulations. The system is designed not just to
+detect emotional states but to respond empathetically and
+adaptively, especially in high-risk emotional contexts such as
+loneliness, anxiety, and suicidal ideation.
+For text sentiment classification, the chatbot uses a logistic
+regression model trained on a corpus of labeled emotional
+statements. 
+This intelligent system bridges the gap between emotional
+distress and timely support, especially for individuals
+suffering from conditions like Social Anxiety Disorder
+(SAD). By analysing user behaviour, facial expressions, and
+mood patterns, Emoticon.AI proactively identifies signs of
+mental health deterioration. Its AI-driven chatbot offers non-
+judgmental companionship, easing the burden of loneliness and
+fear of stigma.
+One of the greatest advantages of Emoticon.AI is its potential to
+intervene during critical emotional lows, offering real-time
+reassurance, emergency alerts, and therapeutic suggestions. This
+system can play a pivotal role in suicide prevention by being a
+readily available, emotionally aware companion. In a world
+growing increasingly isolated, Emoticon.AI stands as a digital
+ally fostering connection, empathy, and early mental health care.
+Furthermore, Emoticon.AI’s integration with healthcare
+databases and support networks empowers it to provide tailored
+recommendations and connect users with mental health
+professionals when necessary. Its continuous learning
+capabilities enable the system to evolve with user interactions,
+ensuring increasingly accurate emotional assessments. By
+promoting self-awareness and encouraging timely intervention,
+Emoticon.AI not only supports mental wellness but also builds
+a sustainable, tech-enabled framework for long-term emotional
+resilience.

@@ -1,0 +1,339 @@
+% ============================================================
+% IEEE Conference/Journal Format — Multi-Lens Forensic Audit
+% Compile with: pdflatex → bibtex → pdflatex × 2
+% Requires: IEEEtran.cls (standard in Overleaf)
+% ============================================================
+\documentclass[conference]{IEEEtran}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{Multi-Lens Forensic Audit of Neural AI Text Detectors Under Topic-Controlled Conditions}
+
+\author{
+\IEEEauthorblockN{Sid}
+\IEEEauthorblockA{
+Manipal Institute of Technology\\
+Manipal, India}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a forensic auditing methodology for AI text detectors using topic-controlled paired evaluation. We construct the Human Revision Study (HRS): five document pairs where each pair shares the same subject but differs in authorship (human vs.\ AI), plus a synthetic control (AI vs.\ AI). We audit a fine-tuned DeBERTaV3 classifier (AUROC 0.971 on the AIHTD corpus, $N = 8{,}238$) and an SBERT baseline (AUROC 0.815) through six lenses: detector delta, $H_1$ topological density, Hypothesis Revision Index, cross-document BERTScore, and intra-document similarity. DeBERTa achieves massive separation ($\Delta \in [-0.982, -0.906]$) on three of four ground-truth pairs but fails ($\Delta \approx 0$) on the pair whose topic is AI text detection itself---a meta-recursive domain confound. The synthetic control validates the design ($\Delta = -0.004$). Topological features do not reach significance ($p = 0.433$). We contribute an audit framework revealing topic-induced detector blindness.
+\end{abstract}
+
+\begin{IEEEkeywords}
+AI-generated text detection, forensic auditing, topological data analysis, DeBERTa, topic-controlled evaluation
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+AI text detectors are typically evaluated by comparing human and AI texts from \textit{different} topics~\cite{wang2024m4}, conflating topic with authorship signals. We address this with three contributions:
+
+\begin{enumerate}
+    \item A topic-controlled evaluation protocol (HRS) with five same-topic human--AI document pairs and one AI--AI synthetic control.
+    \item A multi-lens forensic audit combining six complementary metrics.
+    \item The first documented meta-recursive detection failure: a neural detector fails when the text's topic is AI text detection itself.
+\end{enumerate}
+
+\section{Related Work}
+
+\subsection{Detection Methods}
+
+DetectGPT~\cite{mitchell2023detectgpt} uses log-probability curvature for zero-shot detection (0.95 AUROC on GPT-NeoX). Binoculars~\cite{hans2024binoculars} contrasts two LLMs, achieving $>$90\% detection at 0.01\% FPR. RAIDAR~\cite{mao2024raidar} exploits rewriting edit distances. DNA-GPT~\cite{yang2023dnagpt} applies divergent n-gram analysis. The M4 benchmark~\cite{wang2024m4} demonstrates cross-domain generalization failures.
+
+\subsection{Topological Approaches}
+
+Tulchinskii et al.~\cite{tulchinskii2024intrinsic} show the intrinsic dimensionality (PHD) of sentence embedding manifolds robustly separates human ($\approx$9) from AI text ($\approx$7.5) across 10 languages. Kushnareva et al.~\cite{kushnareva2023artificial} apply TDA to BERT attention maps. Wei et al.~\cite{wei2025shortphd} extend PHD to short texts via off-topic content insertion. Our $H_1$ density analysis explores a related but distinct metric (1-dimensional persistence on sentence embeddings).
+
+\subsection{Adversarial Robustness}
+
+Krishna et al.~\cite{krishna2024paraphrasing} show an 11B-parameter paraphraser reduces DetectGPT accuracy from 70.3\% to 4.6\%. Sadasivan et al.~\cite{sadasivan2023reliable,sadasivan2025adversarial} demonstrate recursive and adversarial paraphrasing can reduce detection rates by up to 98.96\%.
+
+\subsection{Domain-Specific Detection}
+
+Sengupta et al.~\cite{sengupta2025mixrevdetect} achieve $F_1 = 88.86\%$ on mixed-authorship peer reviews. SeqXGPT~\cite{wang2023seqxgpt} detects at sentence level using log-probability features.
+
+\section{Methodology}
+
+\subsection{Datasets}
+
+The AI Human Text Detection (AIHTD) corpus contains $N = 8{,}238$ labeled documents. The HRS comprises five domain-specific pairs (Table~\ref{tab:pairs}), each sharing the same topic. Four are ground truth (human vs.\ AI); one is a synthetic control (both AI-generated).
+
+\begin{table}[t]
+\centering
+\caption{HRS Document Pairs}
+\label{tab:pairs}
+\small
+\begin{tabular}{llcc}
+\toprule
+\textbf{Domain} & \textbf{Type} & \textbf{AI Wds} & \textbf{Hum Wds} \\
+\midrule
+Education      & GT   & 1,574 & 1,488 \\
+Policy         & GT   & 1,956 & 1,966 \\
+Sustainability & GT   & 324   & 355   \\
+Detection      & GT   & 558   & 455   \\
+Sign/ISL       & SC   & 6,199 & 5,917 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Detectors}
+
+\subsubsection{DeBERTaV3-Base} Fine-tuned with a binary classification head. A critical repair was required: the initial training produced AUROC = 0.50 due to a frozen classification head. We applied split learning rates (backbone: $2 \times 10^{-5}$, head: $1 \times 10^{-4}$) and Float32 inference casting. The AI probability is:
+\begin{equation}
+    P_{\text{AI}}(x) = \text{softmax}(f_\theta(x))_1
+\end{equation}
+where $f_\theta(x) \in \mathbb{R}^2$ denotes the classifier logits (the two-dimensional output of the classification head with learned parameters $\theta$), and subscript $1$ selects the probability assigned to the AI-generated class after softmax normalization.
+
+\subsubsection{SBERT Baseline} Logistic regression on mean-pooled Sentence-BERT (all-mpnet-base-v2) embeddings of dimension 768.
+
+\subsection{Audit Lenses}
+
+\textbf{Detector Delta:} For each pair, $\Delta_d = P_{\text{AI}}^d(x_{\text{AI}}) - P_{\text{AI}}^d(x_{\text{Hum}})$ where $d$ is the detector. A negative $\Delta$ indicates correct discrimination.
+
+\textbf{$H_1$ Topological Density:} Given a text decomposed into $n$ sentences embedded via SBERT as a point cloud $\mathcal{P} \subset \mathbb{R}^{768}$, we compute the Vietoris--Rips persistence diagram $\text{Dgm}_1(\mathcal{P})$ with maximum filtration parameter $\epsilon_{\max} = 2.0$. The $H_1$ density is the length-normalized total persistence:
+\begin{equation}
+    \rho_{H_1}(x) = \frac{\sum_{(b_i, d_i) \in \text{Dgm}_1(\mathcal{P})} (d_i - b_i)}{n}
+\end{equation}
+Here, each pair $(b_i, d_i)$ represents the birth time $b_i$ (the filtration parameter at which a 1-dimensional ``loop'' first appears in the simplicial complex) and death time $d_i$ (where it collapses). The persistence $d_i - b_i$ measures the loop's prominence (topological significance). Dividing by the sentence count $n$ controls for document length.
+
+\textbf{HRI Rate:} Discourse marker density per 100 words:
+\begin{equation}
+    \text{HRI}(x) = \frac{|\{t \in x : t \in \mathcal{M}\}|}{|x| / 100}
+\end{equation}
+where $\mathcal{M}$ is a set of discourse markers (e.g., ``however,'' ``furthermore,'' ``in contrast'') and $|x|$ is the word count.
+
+\textbf{Cross BERTScore $F_1$:} Semantic overlap between paired documents using sentence embeddings~\cite{zhang2020bertscore}.
+
+\textbf{Intra-Document Similarity:} Mean pairwise cosine similarity among all $n$ sentence embeddings within a document:
+\begin{equation}
+    \text{IntraSim}(x) = \frac{2}{n(n-1)}\sum_{i < j} \cos(e_i, e_j)
+\end{equation}
+
+\subsection{Statistical Testing}
+
+Given $N = 4$ ground-truth pairs, we use paired permutation tests with $K = 1{,}000$ permutations and report Cohen's $d$:
+\begin{equation}
+    d = \frac{\bar{a} - \bar{h}}{s_{\text{pooled}}}
+\end{equation}
+where $\bar{a}, \bar{h}$ are the mean metric values for AI and human texts, and $s_{\text{pooled}} = \sqrt{(s_a^2 + s_h^2)/2}$ is the pooled standard deviation.
+
+\section{Results}
+
+\subsection{AIHTD Baseline}
+
+On AIHTD ($N = 8{,}238$, 80/20 split): DeBERTa AUROC $= 0.971$; SBERT AUROC $= 0.815$.
+
+\subsection{HRS Audit Results}
+
+Table~\ref{tab:hrs} presents the multi-lens audit. Three findings emerge.
+
+\begin{table*}[t]
+\centering
+\caption{HRS Multi-Lens Audit Results. Bold: $|\Delta| > 0.5$. GT = Ground Truth, SC = Synthetic Control.}
+\label{tab:hrs}
+\small
+\begin{tabular}{llccccc}
+\toprule
+\textbf{Domain} & \textbf{Type} & \textbf{SBERT $\Delta$} & \textbf{DeBERTa $\Delta$} & \textbf{$H_1$ Density $\Delta$} & \textbf{HRI Rate $\Delta$} & \textbf{Cross $F_1$} \\
+\midrule
+Education       & GT   & $-0.034$ & $\mathbf{-0.906}$ & $-0.005$ & $+0.494$ & $0.718$ \\
+Policy          & GT   & $-0.142$ & $\mathbf{-0.978}$ & $+0.001$ & $-0.231$ & $0.885$ \\
+Sustainability  & GT   & $-0.206$ & $\mathbf{-0.982}$ & $-0.001$ & $+0.072$ & $0.693$ \\
+Detection       & GT   & $-0.064$ & $-0.000$          & $+0.006$ & $+0.208$ & $0.522$ \\
+\midrule
+Sign/ISL        & SC   & $-0.062$ & $-0.004$          & $+0.003$ & $-0.046$ & $0.707$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\textbf{Finding 1: DeBERTa discriminates 3/4 ground-truth pairs.} Education ($\Delta = -0.906$), policy ($\Delta = -0.978$), and sustainability ($\Delta = -0.982$) show near-maximal separation. The detector confidently assigns higher AI probability to AI-generated texts.
+
+\textbf{Finding 2: Meta-recursive anomaly.} The detection domain pair ($\Delta \approx 0$) fails precisely because both texts discuss AI text detection. We hypothesize two mechanisms: (a)~vocabulary overlap between the text's subject and DeBERTa's learned detection features; (b)~the human text's compressed, fragment-style writing occupies an embedding region DeBERTa associates with AI text.
+
+\textbf{Finding 3: Synthetic control validates design.} The AI-vs.-AI pair yields $\Delta = -0.004$, confirming the detector does not hallucinate authorship differences absent a real signal.
+
+\subsection{Statistical Analysis}
+
+Table~\ref{tab:perm} reports permutation tests on the four ground-truth pairs.
+
+\begin{table}[t]
+\centering
+\caption{Permutation Tests ($N = 4$ GT Pairs, $K = 1{,}000$)}
+\label{tab:perm}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Metric} & \textbf{Mean $\Delta$} & \textbf{$p_{\text{perm}}$} & \textbf{Cohen's $d$} \\
+\midrule
+$H_1$ Density        & $+0.0001$ & $0.433$ & $0.02$ \\
+HRI Rate             & $+0.1360$ & $0.235$ & $0.45$ \\
+SBERT P(AI)          & $-0.1113$ & $0.940$ & $-1.43$ \\
+Intra-doc Sim.       & $+0.0559$ & $0.060$ & $2.27$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$H_1$ topological density shows no meaningful separation ($d = 0.02$, $p = 0.433$). Intra-document similarity exhibits a large effect ($d = 2.27$, $p = 0.060$), approaching but not reaching conventional significance. This suggests AI-generated texts may produce more internally coherent sentence embeddings, though confirmation requires larger samples.
+
+\subsection{Visualizations}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{hrs_metric_deltas.pdf}
+    \caption{Metric deltas across HRS pairs. The detection domain consistently shows near-zero deltas across all lenses.}
+    \label{fig:hrs_deltas}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{h1_density_comparison.pdf}
+    \caption{$H_1$ density comparison. Distributions overlap substantially ($p = 0.433$).}
+    \label{fig:h1}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{persistence_landscapes_hrs.pdf}
+    \caption{Persistence landscapes for HRS pairs. $H_1$ features visualized across filtration thresholds. Qualitative differences exist but are not statistically significant.}
+    \label{fig:persistence}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{argrewrite_trajectories.pdf}
+    \caption{ArgRewrite HRI trajectories ($N = 21$ essays, 3 drafts). Monotonic increase in 61.9\%; 38.1\% non-monotonic.}
+    \label{fig:argrewrite}
+\end{figure}
+
+Fig.~\ref{fig:hrs_deltas} shows the metric deltas across all HRS pairs, with the detection domain consistently near zero. Fig.~\ref{fig:h1} and Fig.~\ref{fig:persistence} show the non-significant topological analysis. Fig.~\ref{fig:argrewrite} shows ArgRewrite trajectories indicating moderate HRI monotonicity.
+
+\section{Discussion}
+
+\subsection{Meta-Recursive Domain Confound}
+
+The detection pair anomaly constitutes our central finding. When a text's subject matter overlaps with the features a detector uses for classification, the detector cannot disentangle topic from authorship. This has practical implications: neural detectors may systematically fail on texts about AI, NLP, and machine learning---precisely the domains where detection is most needed.
+
+To our knowledge, this is the first documented instance of such a meta-recursive failure in AI text detection. While our sample size prevents strong generalization, the effect is absolute ($\Delta \approx 0$ on a pair with clear stylistic differences) and warrants investigation at scale.
+
+\subsection{Topological Analysis}
+
+Our $H_1$ density results ($p = 0.433$) contrast with Tulchinskii et al.'s~\cite{tulchinskii2024intrinsic} robust PHD separation. The difference likely reflects: (1) our $N = 4$ vs.\ their thousands of samples; (2) our use of total persistence rather than intrinsic dimensionality; and (3) our topic-controlled design, which may reduce exactly the topical signal driving their separation. We present TDA as exploratory evidence, not a detection method.
+
+\subsection{Practical Implications}
+
+The DeBERTa training repair (from AUROC 0.50 to 0.971) highlights a practical lesson: fine-tuned transformer classifiers can appear to fail catastrophically due to gradient flow issues in the classification head, not fundamental detection limits. Practitioners should monitor classification head gradient norms during training.
+
+\section{Limitations}
+
+\begin{itemize}
+    \item HRS comprises only $N = 5$ pairs. Findings are pilot evidence requiring replication at scale.
+    \item We do not test adversarial robustness (paraphrasing attacks), a critical gap given recent work~\cite{krishna2024paraphrasing,sadasivan2023reliable}.
+    \item AIHTD generator provenance is unknown.
+    \item Text length varies significantly across HRS pairs (324--6,199 words).
+    \item $H_1$ density is non-significant and should not be interpreted as evidence of topological separation.
+    \item No code release accompanies this work.
+\end{itemize}
+
+\section{Conclusion}
+
+We introduced a topic-controlled forensic audit methodology that reveals failure modes invisible to standard AI text detection benchmarks. A fine-tuned DeBERTa classifier achieves near-perfect discrimination on three of four same-topic pairs ($\Delta$ ranging from $-0.906$ to $-0.982$) but fails completely on a meta-recursive pair about AI detection ($\Delta \approx 0$). The synthetic control validates the experimental design ($\Delta = -0.004$). Topological features ($H_1$ density) do not reach significance at this scale. We contribute the HRS protocol, the multi-lens audit framework, and the first documentation of topic-induced detector blindness as tools for future forensic evaluation of AI text detectors.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{15}
+
+\bibitem{mitchell2023detectgpt}
+E.~Mitchell, Y.~Lee, A.~Khazatsky, C.~D.~Manning, and C.~Finn,
+``{DetectGPT}: Zero-shot machine-generated text detection using probability curvature,''
+in \textit{Proc.\ ICML}, 2023.
+
+\bibitem{hans2024binoculars}
+A.~Hans, A.~Schwarzschild, V.~Cherepanova, H.~Kazemi, A.~Saha, M.~Goldblum, J.~Geiping, and T.~Goldstein,
+``Spotting {LLMs} with {Binoculars}: Zero-shot detection of machine-generated text,''
+in \textit{Proc.\ ICML}, 2024.
+
+\bibitem{sadasivan2023reliable}
+V.~S.~Sadasivan, A.~Kumar, S.~Balasubramanian, W.~Wang, and S.~Feizi,
+``Can {AI}-generated text be reliably detected?''
+\textit{JMLR}, 2024.
+
+\bibitem{sadasivan2025adversarial}
+Y.~Cheng, V.~S.~Sadasivan, M.~Saberi, S.~Saha, and S.~Feizi,
+``Adversarial paraphrasing: A universal attack for humanizing {AI}-generated text,''
+\textit{arXiv:2412.14637}, 2025.
+
+\bibitem{wang2024m4}
+Y.~Wang \textit{et~al.},
+``{M4}: Multi-generator, multi-domain, and multi-lingual black-box machine-generated text detection,''
+in \textit{Proc.\ ACL}, 2024.
+
+\bibitem{krishna2024paraphrasing}
+K.~Krishna, Y.~Song, M.~Karpinska, J.~Wieting, and M.~Iyyer,
+``Paraphrasing evades detectors of {AI}-generated text, but retrieval is an effective defense,''
+in \textit{Proc.\ NeurIPS}, 2024.
+
+\bibitem{tulchinskii2024intrinsic}
+E.~Tulchinskii \textit{et~al.},
+``Intrinsic dimension estimation for robust detection of {AI}-generated texts,''
+in \textit{Proc.\ NeurIPS}, 2024.
+
+\bibitem{kushnareva2023artificial}
+L.~Kushnareva \textit{et~al.},
+``Artificial text detection via examining the topology of attention maps,''
+in \textit{Proc.\ EMNLP}, 2023.
+
+\bibitem{wei2025shortphd}
+D.~Wei, M.~Mao, X.~Fang, and M.~Chau,
+``{Short-PHD}: Detecting short {LLM}-generated text with {TDA} after off-topic content insertion,''
+\textit{arXiv:2504.02873}, 2025.
+
+\bibitem{yang2023dnagpt}
+X.~Yang, W.~Cheng, Y.~Wu, L.~Petzold, W.~Y.~Wang, and H.~Chen,
+``{DNA-GPT}: Divergent n-gram analysis for training-free detection of {GPT}-generated text,''
+\textit{arXiv:2305.17359}, 2023.
+
+\bibitem{mao2024raidar}
+C.~Mao, C.~Vondrick, H.~Wang, and J.~Yang,
+``{RAIDAR}: Generative {AI} detection via rewriting,''
+in \textit{Proc.\ ICLR}, 2024.
+
+\bibitem{sengupta2025mixrevdetect}
+S.~Kumar, S.~Garg, S.~Sengupta, T.~Ghosal, and A.~Ekbal,
+``{MixRevDetect}: Towards detecting {AI}-generated content in hybrid peer reviews,''
+in \textit{Proc.\ NAACL}, 2025.
+
+\bibitem{wang2023seqxgpt}
+P.~Wang, L.~Li, K.~Ren, B.~Jiang, D.~Zhang, and X.~Qiu,
+``{SeqXGPT}: Sentence-level {AI}-generated text detection,''
+in \textit{Proc.\ EMNLP}, 2023.
+
+\bibitem{he2021debertav3}
+P.~He, J.~Gao, and W.~Chen,
+``{DeBERTaV3}: Improving {DeBERTa} using {ELECTRA}-style pre-training with gradient-disentangled embedding sharing,''
+in \textit{Proc.\ ICLR}, 2023.
+
+\bibitem{reimers2019sentencebert}
+N.~Reimers and I.~Gurevych,
+``{Sentence-BERT}: Sentence embeddings using {S}iamese {BERT}-networks,''
+in \textit{Proc.\ EMNLP}, 2019.
+
+\bibitem{zhang2020bertscore}
+T.~Zhang, V.~Kishore, F.~Wu, K.~Q.~Weinberger, and Y.~Artzi,
+``{BERTScore}: Evaluating text generation with {BERT},''
+in \textit{Proc.\ ICLR}, 2020.
+
+\bibitem{gehrmann2019gltr}
+S.~Gehrmann, H.~Strobelt, and A.~M.~Rush,
+``{GLTR}: Statistical detection and visualization of generated text,''
+in \textit{Proc.\ ACL}, 2019.
+
+\end{thebibliography}
+
+\end{document}

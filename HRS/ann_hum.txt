@@ -1,0 +1,20 @@
+A hybrid BiLSTM approach has been pursued in this paper to analyze text, a mixture of both human and aritificially written, to assess the likelihood of human recognizable patterns.
+A custom dataset, gathered from reviews and op-eds in the topic of fast fashion was built. 
+ A single-modal hyperfocused approach has not been suitable to carry out the prescribed task, with resilient frameworks in great vogue to handle hybrid, varied linguisitc features. 
+The sheer scale and speed at which one could obtain swathes of prose, once which required hours of natural thought has been unprecedented. 
+Be it fashion which we have chosen as our topic of interest, or any other industry, one finds it challenging in academic pursuits to create authentic text. 
+Checks and balances are symbiotic to unregulated fes- tering of fraudulent creations and actions. 
+Perturbation, zero- shot systems training, and encoders that utilise the much coveted transformers are the current state of the art of authorship verification
+Fashion was a suitable choice to train and analyze, for it car- ried a corpus laden with flair, emotion, sentiment and opinion patterns that would pose a challenge to generalized detectors. 
+We explored a specialized integration of linguistic analysis with neural network for traversing pitfalls in AI text detection transparently. 
+To be able discern what fundamentally segments human and machine writing was our endgame. 
+Our approach explicitly defines and extracts features that are key to understanding patterns, creating a detection system optimized for domain specificity.
+Contemporary Detection Pipelines studied multitudes of datasets, with findings not reaching any broad consensus due to the multiple facets of quality, grammar, syntax, verbal brevity, making a generalized universal detector all the more challenging to develop. 
+He et al. worked on massive transformer architectures, mDeBERTa being notable in performing admirably in multi- lingual contexts. 
+Petropoulos et al. explored RoBERTa and BiLSTM se- tups, observing that complementary models that walk the path of either attention or sequence capture exclusive information, a combination of which could increase meaningful conclusions.
+Binoculars by Hans et al. operated by perplexing language models, detecting AI text without prior examples.
+Perturbation methods also matter, DetectGPT  and FastDetectGPT bring to light that machine-generated text occupies a clique in the logarthmic probability space. 
+We attempt to bring about a novel undetaking through: Highlighting emotion and opinion through the subject of fast fashion, Create a hybrid BiLSTM model with multitudes of linguistic features.
+ALso we maintain the model clear to interpret and understand the decision-making process behind analysis and conclu- sions conducted.  
+Dataset Curation A corpus sampling excerpts from human written fashion articles, product descriptions, and industry reports, corresponding generations by Sonnet 4.5 and GPT-4 using fashion- specific prompts.
+Linguistic Features Features for stylistic segmentation were extracted using textstat and custom regex.

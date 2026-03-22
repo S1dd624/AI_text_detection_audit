@@ -1,0 +1,210 @@
+Abstract— Mental health in modern society is a subject seldom
+given importance. Dealing with issues such as stress, depression,
+anxiety can be difficult unless help is sought and provided.
+The Emotion-Aware Chatbot is a project we built with the goal
+of providing said help. The chatbot applies to concepts such as
+facial recognition, emotion detection, interacting with the user
+via texts, processing natural language to assist in providing a
+comfortable, safe experience. We aim for the chatbot to be
+scalable, deployable and compatible in any environment to
+encourage mental wellness and support.
+
+Social Anxiety Disorder (SAD) is a public health concern,
+critical if left untreated. According to estimates by The World
+Health Organization (WHO), SAD has a 12.1% lifetime
+prevalence [1], affecting over 75% of people in low-middle
+income countries, with absolutely no services available.
+Social stigmas and discriminatory practices aggravate this
+problem, leading to no access for care [2][3].
+The lack of attention and importance given to mental health
+problems has been concerning. Yet there is hope to overcome
+this, and Artificial Intelligence has been on the frontline to
+spearhead this problem using groundbreaking discoveries,
+models and methods.
+Emotion-Aware Chatbots are a recent development in
+tackling mental health issues. By applying natural language
+processing (NLP), computer vision, deep learning, real-
+time facial expression translation these chatbots are able to
+provide appropriate responses [4]. Our project is a Flask-based
+web application, based on conversational AI using Chatterbot,
+combining OpenCV to detect emotions, and fetching from a
+user's database to track emotions. Any cues, be it visual or text
+can be interpreted by the chatbot. The user experience
+improves with continuous usage as the chatbot can detect and
+learn from emotional patterns, thus giving emphatic,
+constructive responses.
+Human-computer interaction (HCI) is a rapidly evolving
+field. Strides have been made to make AI emotionally intelligent,
+noticing minute non-verbal details as cues to be of better service
+in medical interventions [5]. Using chatbots has shown reduced
+feelings of isolation, helping users to open up, and making them
+feel welcome and not isolated [6].
+The COVID-19 pandemic serves as a landmark event for
+emotion-aware chatbots. As the world saw an exponential rise in
+demand for digital interactions, it was the call of the hour to
+integrate artificial intelligence with healthcare, giving rise to the
+tele-mental health industry.
+
+II. EXISTING LITERATURE
+• Ahmad et al. [4] proposed emotion-aware
+chatbots using detection of sentiments. Our
+chatbot is inspired from their framework.
+• Inkster et al. [6] surveyed machine learning and
+its applications in mental health diagnostics. A
+similar classification has been undertaken by us.
+• Mimicking human empathy for emphatic dialogue
+was tackled by Ghosh et al. [7].
+• Molla Hosseini et al. [8] introduced deep neural
+network architecture: FER-2103 and CK+, for
+attaining near human-level accuracy. Our chatbot
+built upon their study of classifying complex facial
+cues via convolutional architectures.
+• Multi-modal fusion technique was employed by
+Barros et. al [9] for interpreting facial and voice
+data. Taking cues, our project also uses multiple
+sensory modalities using visual and textual inputs.
+• Chancellor et al. [10] applied natural language
+processing (NLP) for analysing patterns in a
+comprehensive manner for everyday
+communication, also echoed in our chatbot's
+approach to sentiment analysis.
+• 'Woebot', was a chatbot built on Cognitive
+Behavioural Therapy (CBT) by Fitzpatrick et
+al. [11]. Depressive symptoms were reduced over
+the span of two weeks, proving emotion-aware
+AI's efficacy.
+• Majumder et al. [12] developed a conversational
+agent capable of switching strategies for
+dialogue, to adjust to the user's personality.
+Results showed significant increase in user
+satisfaction and the agent's perceived empathy.
+• Explainable AI (XAI) was ventured into by
+Zhong et al. [13], integrating Shapley Additive
+exPlanations (SHAP) and attention-based
+visualization, supporting our adoption of XAI
+components in our chatbot.
+• Synthetic Minority Over-sampling Technique
+(SMOTE) was introduced by Chawla et al. [18]
+for class-imbalanced datasets. We have utilized
+SMOTE in the development of our chatbot.
+III. MATERIALS AND METHODS
+A. Dataset
+Our system is built on a dataset combining multiple modes
+of interaction, to give a simulated experience that is as close
+to real-world scenarios as possible. 
+II. EXISTING LITERATURE
+• Ahmad et al. [4] proposed emotion-aware
+chatbots using detection of sentiments. Our
+chatbot is inspired from their framework.
+• Inkster et al. [6] surveyed machine learning and
+its applications in mental health diagnostics. A
+similar classification has been undertaken by us.
+• Mimicking human empathy for emphatic dialogue
+was tackled by Ghosh et al. [7].
+• Molla Hosseini et al. [8] introduced deep neural
+network architecture: FER-2103 and CK+, for
+attaining near human-level accuracy. Our chatbot
+built upon their study of classifying complex facial
+cues via convolutional architectures.
+• Multi-modal fusion technique was employed by
+Barros et. al [9] for interpreting facial and voice
+data. Taking cues, our project also uses multiple
+sensory modalities using visual and textual inputs.
+• Chancellor et al. [10] applied natural language
+processing (NLP) for analysing patterns in a
+comprehensive manner for everyday
+communication, also echoed in our chatbot's
+approach to sentiment analysis.
+• 'Woebot', was a chatbot built on Cognitive
+Behavioural Therapy (CBT) by Fitzpatrick et
+al. [11]. Depressive symptoms were reduced over
+the span of two weeks, proving emotion-aware
+AI's efficacy.
+• Majumder et al. [12] developed a conversational
+agent capable of switching strategies for
+dialogue, to adjust to the user's personality.
+Results showed significant increase in user
+satisfaction and the agent's perceived empathy.
+• Explainable AI (XAI) was ventured into by
+Zhong et al. [13], integrating Shapley Additive
+exPlanations (SHAP) and attention-based
+visualization, supporting our adoption of XAI
+components in our chatbot.
+• Synthetic Minority Over-sampling Technique
+(SMOTE) was introduced by Chawla et al. [18]
+for class-imbalanced datasets. We have utilized
+SMOTE in the development of our chatbot.
+III. MATERIALS AND METHODS
+A. Dataset
+Our system is built on a dataset combining multiple modes
+of interaction, to give a simulated experience that is as close
+to real-world scenarios as possible. The dataset comprises of:
+1. Textual Data: This consists of user-generated
+messages manually labelled with sentiment classes
+such as positive, negative, or neutral. Example
+entries include phrases like “I feel sad,” “You’re
+amazing,” and “This is horrible,” extracted from
+actual chatbot sessions and augmented with
+emotionally expressive content. These inputs were
+inspired by techniques in sentiment classification
+studies using real-life chat and social media
+interactions [14].
+2. Visual Data: Using the webcam module integrated
+into the camera_stream.py and main.py files, real-
+time facial expressions are captured during
+conversation. Each frame is analysed using a CNN-
+based emotion recognition model trained to classify
+expressions into categories: happy, sad, angry,
+fearful, and neutral. This process mimics datasets
+like FER-2013 but operates in real-time to provide a
+live feedback loop [15].
+Together, these two sources create a hybrid dataset that
+allows the chatbot to combine verbal cues and non-verbal
+facial signals for a richer emotional understanding of the user.
+B. Preprocessing of Dataset
+We have given significant focus on preprocessing, for both
+modes of data, text and visual. To eliminate noise, all text is
+converted to lowercase, removing punctuations and stop words.
+The textual data is then constructed in a structural manner,
+applying tokenization through the Natural Language Toolkit
+(NLTK). The text is segmented into individual units i.e tokens,
+these tokens are converted into numerical vectors using Term
+Frequency–Inverse Document Frequency (TF-IDF). TF-IDF
+weighs the importance of a term comparing it's occurrence
+throughout. The model has thus been made to distinguish
+relevant cues, downplaying less significant or informative
+words [16]. The resulting TF-IDF vectors are utilized as input
+for classifier training. The resulting TF-IDF vectors are stored
+and utilized as input for classifier training.
+The OpenCV library offers capturing webcam feed into real-
+time frames for visual analysis. Each captured frame undergoes
+grayscale conversion to reduce computational complexity while
+preserving essential features. 
+
+For high-dimensional inputs, building a model to be
+interpretable requires feature selection. We tailored the
+textual and visual domains to only retain relevant features,
+leading to better classifier performance, reducing complexity
+in computation and accurate predictions.
+The textual domain had Term Frequency–Inverse
+Document Frequency (TF-IDF) vectorization to initially
+represent text, which converts raw text into a numerical
+format while preserving the relative importance of each word.
+The plethora of features possible were analysed via the Chi-
+square (χ²) test for obtaining the independence between each
+word and it's corresponding sentiment label (positive or
+negative. Retainable features were shown to have higher scores
+in the Chi-square test, due to their strong relation with the
+target classes.
+
+To evaluate the effectiveness of our Emotion-Aware Chatbot,
+we collected metrics, quantitative as well as qualitative from
+those that participated in interacting with the chatbot.
+Quantitative feedback included classification accuracy, F1
+score, UAC-ROC and other metrics. Multiple tests were run
+from real-time emotion recognition, repeated simulations and
+labeled datasets.
+The system is designed not just to detect emotional states but
+to respond empathetically and adaptively, especially in
+high-risk emotional contexts such as loneliness, anxiety, and
+suicidal ideation

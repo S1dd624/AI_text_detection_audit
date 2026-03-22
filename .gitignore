@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reference PDFs (copyrighted papers)
+references/
+
+# Original notebook (renamed to final_run.ipynb)
+publication_babyyy.ipynb
+
+# Personal notes
+past.txt
+past1.png
+past2.png
+past3.png
+prospects
+prospects.txt
+analysis_on_hrs_march5th
+GIT_GUIDE.md
+DEFINITIVE_ANN_CODE_ALL_RESULTS_ACTUALLY_NOT_KIDDING
+feb16th(1).tex
+jan22(1).tex
+
+# Large files
+*.pth
+*.pt
+*.bin
+*.h5
+models/

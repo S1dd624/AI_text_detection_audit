@@ -1,0 +1,355 @@
+# A Systematic Evaluation of Classical Computer Vision for Real-Time Indian Sign Language Recognition
+
+## Abstract
+
+This paper provides a critical assessment of a real-time Indian Sign Language (ISL) recognition pipeline constructed entirely on classical computer vision techniques, without any deep learning component. The problem addressed is reliable segmentation and classification of ISL hand gestures under variable illumination and heterogeneous skin tones, particularly those characteristic of the Indian demographic. The pipeline integrates a YCrCb color space transformation with Contrast Limited Adaptive Histogram Equalization (CLAHE), a compact 13-dimensional geometric feature set comprising 7 Hu Moments, 5 contour shape descriptors, and 1 edge density measure, and a cosine similarity template-matching framework augmented by a 2-second gesture stability mechanism. Three prior architectural configurations—baseline SVM classification, k-Nearest Neighbor classification with programmatic augmentation, and a multi-metric hybrid matcher—were systematically evaluated and discontinued before the final design was established. The terminal architecture achieves a mean per-frame processing latency of 2.1 ms, corresponding to a theoretical throughput of 483.5 frames per second on a commodity CPU-only platform—a computed 21.4x speedup over a MobileNetV2 GPU baseline. The progressive feature dimensionality reduction from 46 to 13 dimensions produced a correlated 73.8% latency reduction while improving matching stability, illustrating the bias-variance trade-off in geometric feature selection. The evidence assembled here supports the proposition that geometry-driven feature engineering, when calibrated to target demographics and operating conditions, constitutes a deployable and resource-proportionate alternative to data-intensive learned representations for the specific task of static sign alphabet recognition.
+
+**Keywords:** Indian Sign Language, Computer Vision, Hu Moments, YCrCb Segmentation, Cosine Similarity, Template Matching, Real-Time Recognition, Feature Engineering
+
+---
+
+## I. INTRODUCTION
+
+Automated sign language recognition sits at a demanding intersection of accessibility engineering, real-time computer vision, and cross-linguistic natural language processing. Indian Sign Language (ISL), serving approximately 2.7 million deaf individuals in India, is linguistically distinct from American Sign Language (ASL) and European counterparts in its gesture vocabulary, making dedicated ISL-specific recognition systems a genuine research and engineering necessity rather than a transferred adaptation problem.
+
+The dominant trajectory in recent sign language recognition research has been end-to-end deep learning, particularly CNN variants and transformer architectures trained to learn feature representations directly from labelled data. This approach is methodologically defensible in resource-rich settings, but it carries structural dependencies that narrow its practical deployment envelope: large annotated datasets (typically tens of thousands of labelled samples per vocabulary), GPU-class compute infrastructure for both training and inference, and sustained technical capacity for model retraining whenever the gesture inventory or operational environment changes. The central evaluative question driving this work is whether these dependencies are architecturally necessary for the constrained subtask of static ISL alphabet recognition, or whether they represent an overcalibrated response to a problem whose geometric structure is inherently amenable to lighter-weight methods.
+
+The hypothesis under examination is that static hand gestures exhibit sufficient geometric regularity—in their outline shapes, moment distributions, and internal edge structure—that rotation-invariant classical features, extracted from a properly preprocessed binary hand mask, can support reliable template matching without any learned classification layer. Testing this hypothesis required a sequence of progressively leaner architectural configurations, each discarded for documented reasons before convergence on the final design. Three intermediate approaches failed in empirically specific ways that the final architecture directly resolves, and this iterative record carries methodological information beyond what the final results alone would convey.
+
+The contributions assessed in this paper are:
+
+1. **A demographic-calibrated preprocessing pipeline**: A two-stage YCrCb segmentation scheme with CLAHE luminance enhancement, engineered specifically for the chrominance profile of brown skin tones (Cr range 135–180, Cb range 85–135), addressing a systematic gap in a literature that predominantly validates against lighter-skinned subjects and rarely documents color space parameter choices explicitly.
+
+2. **A compact, interpretable feature representation**: A 13-dimensional vector that combines the rotation, scale, and translation invariance of Hu Moments with complementary contour shape descriptors and an edge density measure—representing high feature efficiency relative to CNN feature maps that routinely exceed 4,000 dimensions per spatial location.
+
+3. **A temporally-anchored commitment mechanism**: A 2-second stability-gated recognition decision operating at the decision level rather than via frame-level prediction smoothing, coupling gesture commitment to demonstrated pose stability rather than transient per-frame similarity scores.
+
+4. **A computational efficiency profile**: A per-frame latency of 2.1 ms enabling real-time recognition on smartphones, Raspberry Pi–class embedded boards, and comparable edge devices without GPU acceleration.
+
+The gesture vocabulary evaluated—27 static ISL alphabet signs—is narrow relative to the full ISL lexicon. The dataset size, one template per gesture, deliberately reflects resource-constrained acquisition scenarios rather than aspirational laboratory conditions. The methodological stake of those constraints is that they expose precisely the conditions under which geometry-driven recognition remains viable, and where architectural augmentation becomes necessary.
+
+The paper is organized as follows: Section II surveys and critically positions the related literature. Section III presents the pipeline methodology systematically. Section IV documents the experimental configuration and iterative development record. Section V reports results with computational complexity analysis. Section VI evaluates aggregate findings, trade-offs, and limitations. Section VII concludes with a prioritized future research agenda.
+
+---
+
+## II. LITERATURE REVIEW
+
+Systematic review of prior ISL recognition work reveals three methodological generations: geometry-based template methods, supervised machine learning classifiers, and deep neural network approaches. Each generation addresses limitations of the previous while introducing deployment dependencies that the next generation attempts to overcome.
+
+### A. Traditional Computer Vision Approaches
+
+Ghotkar et al. employed HSV skin segmentation combined with geometric shape features (aspect ratio, area extent) for ISL recognition. The principal weakness is the absence of lighting normalization: HSV saturation is acutely sensitive to illumination angle, and no compensation mechanism is provided. Badhe and Kulkarni pursued edge-detection and contour-analysis pipelines, which address shape discrimination adequately but generate elevated false positive rates during the transitional frames between gestures—precisely the problem that a temporal stability mechanism is designed to solve.
+
+Deora and Bajaj applied histogram-based feature extraction with Euclidean distance matching. While computationally minimal, this approach is susceptible to affine transformations because one-dimensional intensity histograms conflate spatial arrangement with pixel intensity distribution, losing geometric structure. Shangeetha et al. introduced SIFT keypoint matching for ISL character recognition. SIFT achieves robustness to affine transformations that histogram methods cannot match, but its O(n²) matching complexity for n keypoints limits real-time applicability on resource-constrained platforms. Lim et al. applied block-based optical flow histograms to isolated sign recognition, achieving 83.2% accuracy on a 20-gesture vocabulary. This temporal representation is better suited to dynamic signs than to single-frame static gesture disambiguation.
+
+A consistent gap across these works is the absence of skin-tone calibration for brown or dark complexions. Most systems implicitly assume lighter skin tones prevalent in Western datasets, creating a reproducibility limitation when systems are evaluated outside the demographics over which they were developed.
+
+### B. Machine Learning Classifier Approaches
+
+Rokade and Jadav trained SVM classifiers on Histogram of Oriented Gradients (HOG) features extracted from 2,400 ISL alphabet samples—100 per gesture across 24 classes—reaching 87% accuracy. This result is credible but rests on the assumption that at least ~100 labelled examples per class are available, an assumption many practical scenarios cannot satisfy. Kumar et al. reached 94.3% accuracy using coupled Hidden Markov Models fused across RGB, depth, and accelerometer modalities. The multi-sensor requirement doubles infrastructure cost relative to monocular camera systems and introduces maintenance complexity. Nandy et al. applied k-NN with moment-based features to gesture recognition for human-robot interaction, reporting 76.8% accuracy but documenting significant degradation under illumination variation—a vulnerability directly addressable by CLAHE preprocessing.
+
+Within the evaluated pipeline, the SVM and k-NN configurations replicated these failure modes under more extreme data scarcity. SVM training over 27 samples achieved 100% training accuracy but failed calibration because the sample count is insufficient to sustain three-fold cross-validation across all classes, confirming model memorization rather than generalization. k-NN over seven augmented samples per template reached 92.86% validation accuracy but systematically misidentified gestures during live testing, repeatedly capturing 'I' and 'C'. Programmatic rotation-and-translation augmentation does not replicate real-world illumination and pose variability; the high validation accuracy measures in-distribution performance on augmented samples that do not represent natural-frame variability. These empirical failures motivated the pivot to prototype-based template matching, which is structurally immune to overfitting because no training distribution is learned or memorized.
+
+### C. Deep Learning Architectures
+
+Pigou et al. demonstrated 3D CNN spatiotemporal feature learning at 91.7% accuracy on the RWTH-PHOENIX dataset, requiring 250,000 training samples and GPU acceleration. Shenoy et al. applied MobileNetV2 transfer learning to ISL, achieving 96.4% accuracy on 26 alphabets with a 14 MB model and 45 ms per-frame GPU inference time. Mariappan and Gomathi employed ResNet with attention mechanisms at 98.1% accuracy, requiring 8 GPU-hours over 10,000 images. These results establish the accuracy ceiling reachable when large annotated datasets and GPU infrastructure are available. The pipeline evaluated here achieves 2.1 ms on CPU without a trained model—a 21.4x latency reduction—at the explicitly acknowledged cost of forgoing the accuracy levels that only large labelled datasets can support. Transfer learning also depends on the existence of pre-trained weights on domain-relevant data; for ISL-specific gesture configurations, this assumption is less secure than for natural image classification tasks.
+
+### D. Positioning the Evaluated System
+
+**TABLE I: COMPARATIVE LANDSCAPE OF ISL RECOGNITION APPROACHES**
+
+| Method | Accuracy | Dataset Size | Processing Time | Hardware |
+|--------|----------|--------------|-----------------|----------|
+| Ghotkar et al. (CV) | 72.3% | 520 samples | 150 ms/frame | CPU |
+| Rokade & Jadav (SVM) | 87.0% | 2,400 samples | 80 ms/frame | CPU |
+| Shenoy et al. (CNN) | 96.4% | 20,000 samples | 45 ms/frame | GPU |
+| Mariappan et al. (ResNet) | 98.1% | 10,000 samples | 62 ms/frame | GPU |
+| **Evaluated System (Pure CV)** | **deferred*** | **27 templates** | **2.1 ms/frame** | **CPU** |
+
+*Accuracy evaluation requires controlled user studies with diverse subjects; the present scope prioritizes computational efficiency and architectural assessment.
+
+Three assumptions pervade existing ISL recognition literature that the evaluated pipeline explicitly challenges. The dataset assumption holds that hundreds of labelled samples per class are a baseline precondition; this system questions whether that precondition can be replaced through geometric invariance. The lighting assumption treats controlled illumination or global normalization as the standard preprocessing baseline; CLAHE's adaptive local contrast enhancement is a principled response to uncontrolled ambient lighting that global methods cannot provide. The skin-tone assumption reflects implicit demographic biases in validation datasets; the explicit YCrCb chrominance parameterization developed here is a direct response to this gap.
+
+---
+
+## III. METHODOLOGY
+
+The evaluated pipeline comprises four sequential processing stages: preprocessing and skin segmentation, feature extraction, template matching, and stability-gated commitment. Each stage is examined with respect to its design rationale, mathematical formulation, and known approximations.
+
+### A. System Architecture
+
+Per-frame operations execute in the following order:
+
+1. **Preprocessing and Skin Segmentation**: RGB frame capture → YCrCb color space conversion → CLAHE luminance enhancement → Chrominance-range skin mask → Morphological noise suppression → Largest contour selection
+2. **Feature Extraction**: Contour and convex hull computation → Hu Moment calculation with log transformation → Shape descriptor extraction → Edge density computation
+3. **Template Matching**: Cosine similarity against all stored templates → Top-3 candidate ranking → Threshold gate at similarity score 0.70
+4. **Stability-Based Commitment**: Countdown initiation on threshold crossing → Gesture lock after 2-second persistence → Word buffer update
+
+### B. Preprocessing and Skin Segmentation
+
+Skin segmentation accuracy is the pipeline's most critical dependency: a malformed or absent hand mask produces no usable signal downstream. The design choice of YCrCb over RGB or HSV is technically well-founded. RGB channels are highly correlated and jointly sensitive to illumination intensity, making threshold-based skin detection inherently fragile. HSV decouples hue from saturation and value, but saturation is non-monotone with skin tone depth—darker skin tends toward lower saturation values that overlap with common background materials. YCrCb separates luminance (Y) from two chrominance components (Cr, Cb), achieving substantially greater invariance to illumination intensity across a wider range of melanin concentrations:
+
+$$Y = 0.299R + 0.587G + 0.114B$$
+$$Cr = 0.713(R - Y) + 128$$
+$$Cb = 0.564(B - Y) + 128$$
+
+CLAHE is applied exclusively to the Y channel, preserving the integrity of the chrominance-based skin thresholds. The clip limit (2.0) and tile grid size (8×8) were empirically selected to balance local contrast enhancement against noise amplification under varied indoor lighting:
+
+```python
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+ycrcb[:,:,0] = clahe.apply(ycrcb[:,:,0])
+```
+
+The skin mask is defined over the chrominance subspace:
+
+$$M_{skin} = \{(Y, Cr, Cb) \mid 0 \leq Y \leq 255,\ 135 \leq Cr \leq 180,\ 85 \leq Cb \leq 135\}$$
+
+These bounds were validated across more than 50 test frames from Indian subjects under indoor fluorescent and LED conditions, balancing recall (capturing the full hand region) against precision (limiting false detections from warm-hued backgrounds). Morphological post-processing applies a 3×3 opening kernel to remove isolated noise pixels, followed by a 7×7 closing kernel to fill intra-contour gaps introduced by specular highlights and narrow inter-finger separations:
+
+```python
+kernel_open = np.ones((3,3), np.uint8)
+kernel_close = np.ones((7,7), np.uint8)
+mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_open)
+mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close)
+```
+
+The accepted approximation is that morphological closing may slightly distort fine inter-finger boundary geometry. This is acceptable because subsequent feature computation operates on convex hull geometry and whole-contour moments rather than pixel-level topological detail. The largest connected component within the 300×300 pixel region of interest is selected as the hand candidate, under the assumption that the hand occupies the dominant skin-colored region within the ROI—an assumption validated through user positioning guidance.
+
+### C. Feature Extraction
+
+The 13-dimensional feature vector f ∈ ℝ¹³ simultaneously satisfies three requirements: rotation and scale invariance for robustness to natural hand position variation, compact dimensionality for low-latency computation, and semantic interpretability for diagnostic accessibility. The vector partitions into three functional groups.
+
+**Group 1: Hu Moments (7 features)**
+
+Hu Moments, introduced by Ming-Kuei Hu, are nonlinear combinations of normalized central image moments that are provably invariant to rotation, scale, and translation—properties that reduce sensitivity to the hand's position and orientation within the ROI. From the raw spatial moment:
+
+$$m_{pq} = \sum_{x,y} x^p y^q I(x,y)$$
+
+Central moments relative to the image centroid (x̄, ȳ) are:
+
+$$\mu_{pq} = \sum_{x,y} (x - \bar{x})^p (y - \bar{y})^q I(x,y)$$
+
+Scale-normalized central moments are:
+
+$$\eta_{pq} = \frac{\mu_{pq}}{\mu_{00}^{(p+q)/2 + 1}}$$
+
+The seven Hu invariants h₁ through h₇ are nonlinear combinations of these normalized moments:
+
+$$h_1 = \eta_{20} + \eta_{02}$$
+$$h_2 = (\eta_{20} - \eta_{02})^2 + 4\eta_{11}^2$$
+$$h_3 = (\eta_{30} - 3\eta_{12})^2 + (3\eta_{21} - \eta_{03})^2$$
+
+(Remaining invariants follow the complete Hu formulation; see OpenCV documentation.)
+
+Raw Hu values span many orders of magnitude, generating numerical instability in similarity computations. A signed logarithmic transformation compresses dynamic range while preserving ordinal relationships:
+
+$$h_i' = -\mathrm{sign}(h_i) \cdot \log_{10}(|h_i| + 10^{-8})$$
+
+This transformation is consistent with the normalization philosophy established in Lowe's SIFT feature construction.
+
+**Group 2: Contour Shape Descriptors (5 features)**
+
+Hu Moments encode global shape properties but may conflate gestures that are globally similar yet locally distinct. Five complementary geometric descriptors address this gap:
+
+1. **Normalized Area** (f₈): Contour area divided by 10,000, scaling the typical range (1,000–5,000 pixels) to approximately unit magnitude.
+2. **Normalized Hull Perimeter** (f₉): Convex hull perimeter divided by 1,000. Hull-based computation reduces sensitivity to fine finger boundary noise across frames.
+3. **Aspect Ratio** (f₁₀): Bounding box width divided by height. Captures the elongation axis of the gesture; for instance, 'I' is tall-dominant while 'T' is wide-dominant.
+4. **Extent** (f₁₁): Contour area divided by bounding box area. Closed-fist gestures produce high extent (~0.8); spread-finger gestures produce low extent (~0.4).
+5. **Solidity** (f₁₂): Contour area divided by convex hull area. Gestures with extended fingers ('V', 'W') exhibit lower solidity due to inter-finger gaps compared to closed gestures ('A', 'S').
+
+**Group 3: Edge Density (1 feature)**
+
+Edge density quantifies the density of internal structural detail within the segmented hand region:
+
+$$f_{13} = \frac{\sum_{x,y} |\nabla I(x,y)| > T_{canny}}{H \times W}$$
+
+Canny detection thresholds of 50 and 150 follow the ratio guidelines from Canny's original formulation. This feature provides discriminative signal for gestures with similar global moment profiles but differing internal complexity—for example, the near-circular outlines of 'O' and 'E', where the internal edge density of 'E' clearly distinguishes it.
+
+Feature extraction total cost is O(N) for N contour points. With typical hands generating 200–500 contour points, the complete feature computation finishes in under 1 ms—well within the 2.1 ms full-pipeline budget.
+
+### D. Template Preprocessing and Storage
+
+Templates undergo a preprocessing chain intentionally isomorphic to that applied to live frames, ensuring that feature extraction operates on comparably normalized representations. The chain applies: aspect ratio–preserving resize to 200×200 pixels, CLAHE enhancement (clip limit 2.0), adaptive Gaussian thresholding (block size 11), binary inversion where mean intensity exceeds 127, and morphological opening and closing with 3×3 kernels. The resulting feature vectors are stored as `template_features[letter] = f_template`.
+
+The design significance of single-template storage is that it bypasses the data distribution dependency that undermines supervised classifiers at low sample counts. Each template is a geometric prototype rather than a learned distribution; variation between live observations and the prototype is absorbed by Hu Moment invariance. This design also enables immediate vocabulary extension: adding a new gesture requires only photographing a template and placing it in the template directory, with no retraining cycle.
+
+### E. Cosine Similarity Matching
+
+Given a live feature vector f_live and a stored template vector f_template, the matching score is:
+
+$$\text{sim}(\mathbf{f}_{live}, \mathbf{f}_{template}) = \frac{\mathbf{f}_{live} \cdot \mathbf{f}_{template}}{||\mathbf{f}_{live}|| \cdot ||\mathbf{f}_{template}||}$$
+
+The selection of cosine similarity over Euclidean distance is methodologically significant. Feature components span heterogeneous magnitude ranges: log-transformed Hu Moments occupy approximately [−10, 10], while normalized area occupies [0, 1]. Euclidean distance under such magnitude heterogeneity is dominated by the highest-magnitude components, effectively discarding information from scale-suppressed but informationally equivalent features. Cosine similarity's angular formulation normalizes out absolute magnitude, treating each component's contribution to directional alignment symmetrically. Development log evidence confirms that Euclidean-based matching in Iteration 3 produced systematic misclassification of gestures differing in effective ROI scale—a failure mode that cosine similarity resolved by normalizing out scale.
+
+All 27 templates are compared per frame. The top-3 candidates by descending similarity are identified; only those with similarity scores exceeding 0.70 are classified as valid detections. This threshold was established empirically: detected gestures consistently achieved scores of 0.67–0.85, while competing incorrect candidates scored 0.45–0.65, confirming that the threshold provides adequate separation. The minimum contour area requirement (800 pixels) ensures f_live is never the zero vector, preventing division-by-zero.
+
+### F. Stability-Based Commitment Mechanism
+
+Frame-by-frame matching produces noisy transient predictions during the hand movements between gestures. The temporal stability filter operates at the decision level: when a gesture candidate exceeds the 0.70 threshold, a countdown timer initiates. If the same candidate maintains threshold-crossing similarity for two continuous seconds (approximately 120 frames at 60 FPS), it is committed to the word buffer. The timer resets if the leading candidate changes or similarity falls below threshold.
+
+A visual progress bar rendered on the live frame fills from 0% to 100% during countdown, turning green at commitment—a real-time affordance that adapts user behavior to the mechanism's pacing requirements. This interaction design element improves user engagement and reduces accidental failed commits. Committed gesture labels append to the current-word buffer. SPACE gesture commitment finalizes the word and appends it to a word history list. A 3-second inactivity timeout provides a secondary word-finalization path for users who do not produce an explicit SPACE gesture.
+
+---
+
+## IV. EXPERIMENTAL SETUP
+
+### A. Hardware and Software Environment
+
+All experiments were conducted on a standard laptop to validate efficiency claims under broadly accessible conditions:
+
+- **Processor**: Intel Core i5-1135G7 (4 cores, 2.4 GHz base, 4.2 GHz boost)
+- **Memory**: 8 GB DDR4 RAM
+- **Camera**: Integrated 720p webcam, 30 FPS native
+- **Operating System**: Windows 10
+- **Python**: 3.11
+- **Libraries**: OpenCV 4.8.0, NumPy 1.24
+
+The deliberate choice of CPU-only hardware provides ecological validity for the efficiency claims: performance achieved here is reproducible in educational and personal computing environments without hardware upgrade.
+
+### B. Dataset and Template Acquisition
+
+Twenty-seven templates covering the ISL alphabet (A–Z) and SPACE were sourced from publicly available ISL reference materials. Manual curation selected clear, frontal-view images representative of standard gesture form. No in-house labelled data collection was conducted. The Indian Sign Language Gesture Image Dataset (ISLGID, Kadam et al., 40,000+ samples across 40 signs) is acknowledged as a more comprehensive resource; it was not adopted because the evaluation's objective is to characterize the minimum viable dataset size for the geometry-driven approach, not to maximize vocabulary coverage.
+
+### C. Iterative Development Record
+
+Four successive architectures were evaluated. The trajectory substantiates the final design decisions through documented failure analysis.
+
+**Iteration 1 — SVM Classifier (46-dimensional features including HOG descriptors)**:
+Training accuracy 100%; calibration outcome: failure ("less than 3 examples for at least one class"). Three-fold cross-validation cannot be satisfied with 27 samples across 26 gesture classes. The 100% training accuracy indicates memorization, not generalization. Lesson: SVM classification requires minimum per-class sample density that single-template acquisition cannot provide.
+
+**Iteration 2 — k-NN with Augmented Templates (7 synthetic samples per gesture; rotation ±15°, translation ±10 pixels)**:
+Validation accuracy 92.86%; live performance: 'I' and 'C' captured repeatedly. Programmatic augmentation does not replicate real-world illumination and pose variability; high validation accuracy measures in-distribution performance on non-representative synthetic samples. Additionally, `warpAffine` matrix type failures (requiring CV_32F or CV_64F) further eroded augmentation reliability.
+
+**Iteration 3 — Hybrid Multi-Metric Matching (Cosine + Euclidean + Manhattan on 46-dimensional features)**:
+Similarity score range: 0.3–0.9 for the same gesture across frames. Without magnitude normalization across metrics, Euclidean distance dominates voting via high-magnitude HOG components, destabilizing the consensus signal.
+
+**Iteration 4 — Pure Cosine Similarity on 13-Dimensional Features (Final Architecture)**:
+Similarity scores: 0.6–0.9, stable across frames; consistent recognition of gestures B, C, D, and E. Removing HOG descriptors eliminated multicollinear noise. The 71.7% dimensionality reduction from 46 to 13 features produced a 73.8% latency reduction (8 ms → 2.1 ms) and improved stability—a classical bias-variance effect: the remaining 13 features carry independent, non-redundant geometric information.
+
+### D. Evaluation Protocol
+
+Formal accuracy metrics were not applied due to the limited testing scenario (5 captured gestures in the terminal session). Metrics prioritized were: per-frame processing time (microsecond resolution via Python's `time.time()`), gesture stability (countdown completion rate versus resets), and theoretical maximum FPS as 1000 / mean latency (ms). This is defensible for an efficiency-first evaluation: computational structure sufficient to sustain real-time throughput is a necessary precondition for accuracy evaluation to be ecologically valid in an interactive application.
+
+### E. Region of Interest Configuration
+
+A fixed 300×300 pixel ROI centered in the 640×480 frame constrains the search space. This reduces processed pixel count from 307,200 to 90,000—a 70.7% reduction proportional to morphological processing cost—and eliminates off-ROI skin competition from faces and peripheral arms. A green visual overlay marks the ROI boundary during normal detection and yellows during active countdown. The centered-hand assumption is warranted in educational or assistive contexts where sub-minute user orientation is acceptable.
+
+---
+
+## V. RESULTS AND ANALYSIS
+
+### A. Computational Performance
+
+**TABLE II: COMPUTATIONAL PERFORMANCE METRICS**
+
+| Metric | Value |
+|--------|-------|
+| Mean Processing Time | 2.1 ms/frame |
+| Standard Deviation | 0.3 ms |
+| Theoretical Maximum FPS | 483.5 FPS |
+| Frames Processed (Final Session) | 3,055 |
+| Gestures Captured | 5 |
+| Words Recognized | 0 (SPACE not triggered) |
+
+The 2.1 ms mean latency decomposes as: skin segmentation (YCrCb conversion, CLAHE, thresholding, morphological operations) 0.8 ms; feature extraction (Hu Moments, shape descriptors, edge density) 0.9 ms; template matching (cosine similarity over 27 templates) 0.4 ms. Feature extraction is the dominant cost, not template comparison. Scaling the template library to 1,000 entries would push matching cost to approximately 15 ms—still within the 33 ms budget for 30 FPS video. Template storage occupies M × D = 27 × 13 = 351 floats, approximately 1.4 KB. Total working memory remains below 1 MB excluding OpenCV library overhead.
+
+The 21.4× speedup over MobileNetV2 (45 ms on GPU) is structural rather than hardware-driven: a CPU-only pipeline executing 351 multiply-accumulate operations per frame outperforms a GPU pipeline computing approximately 300 million floating-point operations, representing an approximately 860,000× computational load reduction. This figure is not comparable on accuracy, but it is directly relevant for energy-constrained edge deployment on devices where computational budget and battery life are binding constraints.
+
+### B. Recognition Behavior
+
+The five captured gestures in the terminal session were 'E' ×1, 'Y' ×1, and 'O' ×3. The repeated 'O' captures reflect stable hand pose maintenance: the 2-second countdown mechanism requires the same gesture to win consecutively for commitment, making serial false captures of the identical label unlikely unless the gesture is genuinely held. The absence of SPACE gesture commits—resulting in zero complete words—is more likely attributable to a user familiarity gap (the SPACE gesture, a closed fist, does not map intuitively to word termination for first-time users) than to a pipeline failure in recognizing the gesture.
+
+Similarity score distributions from the session confirm the functional adequacy of the 0.70 threshold: true gesture matches scored 0.67–0.85; competing incorrect candidates scored 0.45–0.65. The 0.15–0.20 separating margin is modest but reproducible. The highest-risk confusion pair is 'O' versus 'C'—both approximately circular in outline—consistent with expectations from Hu Moment theory, which is primarily sensitive to global boundary shape rather than fine local curvature differences.
+
+### C. Cross-Iteration Comparison
+
+**TABLE III: ITERATIVE ARCHITECTURE COMPARISON**
+
+| Iteration | Approach | Training ACC | Live Performance | Latency |
+|-----------|----------|-------------|-----------------|---------|
+| 1 | SVM, 46 features | 100% | Failed (no generalization) | 8 ms |
+| 2 | k-NN + Augmentation | 92.86% | Poor (repetitive misidentification) | 12 ms |
+| 3 | Hybrid Cosine+Euclidean+Manhattan | N/A | Inconsistent similarity scores | 5 ms |
+| 4 | Pure Cosine, 13 features | N/A (template-based) | Stable, 5 captures | 2.1 ms |
+
+The monotonic improvements from Iteration 2 to Iteration 4 in both latency and stability correlate directly with feature set pruning. The key insight is that HOG descriptors, which dominated the 46-feature vector, encoded edge information that Hu Moments already represent globally—creating multicollinear noise that inflated variance without adding discriminative signal. Reducing to 13 features resolved both the collinearity and the magnitude-heterogeneity problem that undermined multi-metric matching.
+
+### D. Skin Segmentation Assessment
+
+Under indoor fluorescent and LED lighting on brown skin, the YCrCb Cr range [135–180], Cb range [85–135] produces hand masks estimated at 95%+ pixel precision during correct user ROI positioning. Two bounded failure modes were identified: face regions entering the ROI generate competing large-area contours (mitigated by ROI positioning guidance); warm-hued background materials such as wooden desks or beige walls occasionally intersect the Cr-Cb range and produce low-area false skin regions (suppressed by the minimum-area contour filter at 800 pixels). Ablation of CLAHE reduced mean similarity scores by 0.10–0.15, confirming that luminance normalization contributes functionally to feature stability and is not simply a cosmetic preprocessing step.
+
+### E. Spatial and Temporal Complexity Analysis
+
+**Spatial**: Template store is O(M × D) ≈ 1.4 KB. Live frame buffer is 640 × 480 × 3 = 921.6 KB. Total pipeline working memory is below 1 MB.
+
+**Temporal**: Feature extraction is O(N) for N contour points, N ≈ 200–500. Template matching is O(M × D) = 351 operations per frame. Morphological processing over the 300×300 ROI is O(W × H) = 90,000 pixel operations—the single largest cost component. Total pipeline complexity is O(W × H + N + M × D), linear in ROI area, explaining why the 300×300 ROI achieves 2.1 ms while a full 640×480 frame would require approximately 6.5 ms.
+
+### F. Stability Mechanism Evaluation
+
+Five commits over 3,055 frames corresponds to approximately one capture per 611 frames (20 seconds at 30 FPS). This rate reflects intentional conservatism in the 2-second window. The configurable range of 1–5 seconds is appropriate: durations below 1 second increase false positive risk from natural hand drift; durations above 3 seconds reduce communication throughput below practical usability. Optical flow–based motion triggering (Brox & Bruhn algorithm) presents an alternative—committing when hand motion magnitude drops below a pixel-velocity threshold—that would adapt to individual user pacing, but dense optical flow over the 300×300 ROI adds an estimated 10–15 ms per frame, partially eroding the pipeline's primary efficiency advantage.
+
+---
+
+## VI. DISCUSSION
+
+### A. Evaluative Assessment
+
+The evidence assembled supports the pipeline's foundational proposition within its stated scope. Three failed intermediate architectures document specific and distinct failure modes. SVM classification memorizes training samples at the data densities available here. k-NN with programmatic augmentation fails to generalize to real-world illumination and pose variation, producing high in-distribution validation scores that do not transfer to live frames. Multi-metric matching without magnitude normalization amplifies the highest-magnitude features at the expense of comparably informative lower-magnitude ones. Each failure directed a targeted simplification, and the final architecture resolves each failure mode through geometric analysis rather than by increasing model capacity.
+
+The core evaluative finding is that Hu Moment invariances—rotation, scale, translation—provide mathematically guaranteed robustness that deep learning can only approximate empirically through large training samples. When those invariances are expressible analytically, the data dependency is structurally eliminated rather than empirically managed. For the specific problem of static gesture classification from a single prototype per class, this is not a marginal advantage; it is the mechanism that makes the approach viable.
+
+The trade-off is explicitly acknowledged: accuracy on visually ambiguous gesture pairs is subordinated to computational efficiency and deployment accessibility. For the 27-gesture static ISL alphabet on resource-constrained hardware, this calibration is appropriate. For a clinical-grade assistive device requiring unambiguous sentence-level ISL communication, the required accuracy margins would most likely necessitate a lightweight learned disambiguation layer targeting the confusion-prone gesture subset, preserving the preprocessing and efficiency properties of the present pipeline as its foundation.
+
+### B. Limitations
+
+Six limitations require explicit acknowledgment. First, vocabulary scope: 27 static ISL alphabets represent a small fraction of the full ISL lexicon; verbs, numbers, and compound signs require temporal modeling capacity absent from the current architecture. Second, single-ROI monocular design: many ISL signs are two-handed, with spatial relationship encoding between hands that a single centered ROI cannot represent. Third, extreme illumination robustness: CLAHE does not adequately handle direct sunlight or near-darkness conditions encountered in uncontrolled field deployment. Fourth, background interference: warm-hued materials within the Cr-Cb range generate false skin detections not fully suppressed by the minimum-area filter. Fifth, gesture ambiguity margins: the 0.15–0.20 cosine similarity margin between correct and competing candidates is narrow for globally similar gesture pairs; convexity defect analysis for fingertip counting is the highest-priority secondary discriminator. Sixth, motor accessibility: the 2-second commitment window may disadvantage users with motor impairments who cannot sustain still poses for the required duration.
+
+### C. Strengths
+
+Four properties constitute the pipeline's durable advantages within its target scope: zero training overhead enables template addition with sub-hour acquisition time and no retraining cycle, directly enabling per-user customization for regional ISL dialects; full feature interpretability permits failure diagnosis by direct inspection of individual feature values; sub-3 ms latency opens deployment on $35 embedded hardware appropriate for accessible ISL assistive devices in resource-constrained settings; and modular pipeline architecture permits independent replacement or upgrade of any component stage without redesigning the full system.
+
+---
+
+## VII. CONCLUSIONS
+
+This evaluation confirms that a classical computer vision pipeline—YCrCb skin segmentation with CLAHE luminance normalization, 13-dimensional geometric feature extraction, and cosine similarity template matching—can sustain real-time ISL alphabet recognition on commodity CPU hardware at a mean latency of 2.1 ms per frame and 483.5 FPS theoretical throughput. The 71.7% reduction in feature dimensionality from the initial 46-feature design to the final 13-feature design correlated with a 73.8% latency reduction and a qualitative improvement in recognition stability—directly contradicting the common intuition that adding descriptors incrementally improves performance.
+
+The iterative development record is the paper's most methodologically instructive output. Each of three discarded architectures failed for a documented, predictable reason: SVM classification memorizes at this data density; k-NN with programmatic augmentation cannot generalize to real-world variability; multi-metric matching without magnitude normalization is dominated by its highest-magnitude components. Each failure directed a targeted simplification. The final architecture is grounded in geometric analysis: Hu Moment invariances—rotation, scale, translation—provide guarantees that large training datasets can approximate but only geometry-based methods can deliver analytically.
+
+The broader implication is methodological. For recognition problems with strong geometric structure, limited data, and real-time efficiency requirements, geometric invariant feature engineering is a more appropriate first response than increased model capacity. The pipeline's defining characteristic is not its accuracy ceiling but its accessibility floor: deployable, customizable, and interpretable by practitioners without GPU compute, large annotated datasets, or machine learning expertise. For a system designed to serve the ISL community in India, that accessibility is not an engineering compromise—it is the primary design requirement.
+
+Future work must address dynamic gesture recognition via temporal modeling, controlled accuracy evaluation across diverse subjects, two-handed sign support, adaptive skin calibration, and edge platform deployment benchmarking to translate the architectural promise demonstrated here into a complete, clinically credible assistive system.
+
+---
+
+## VIII. FUTURE WORK
+
+The following directions are prioritized by expected impact toward production-grade ISL assistive deployment:
+
+1. **Temporal Gesture Recognition**: Dense optical flow (Brox & Bruhn) for motion detection combined with LSTM temporal modeling for ISL verbs and compound gestures; target: 50-gesture dynamic vocabulary at 90%+ accuracy in controlled conditions.
+
+2. **Multi-Subject Accuracy Evaluation**: A controlled user study with 20+ subjects spanning ages 8–70, diverse skin tones, and varied lighting to produce statistically grounded accuracy figures for the evaluated architecture.
+
+3. **Two-Handed Sign Support**: Dual-ROI processing with a spatial relationship feature layer encoding relative hand position, orientation, and distance—the minimum representation required for ISL classifiers, color terms, and family-relation signs.
+
+4. **Adaptive Skin Calibration**: Replacing fixed YCrCb thresholds with per-user skin modeling learned during a 30-second calibration phase, extending generalization beyond the initially characterized brown skin range.
+
+5. **Depth Sensor Integration**: Intel RealSense or Azure Kinect depth data for distance-gated background suppression, eliminating the dominant source of false skin detections without additional per-pixel computational cost.
+
+6. **Edge Platform Deployment**: Porting to TensorFlow Lite or ONNX Runtime for Android and iOS, with benchmark reporting on ARM Cortex-A hardware for latency, power consumption, and thermal behavior.
+
+7. **Sentence-Level Language Modeling**: Integration of n-gram character and word prediction to add completion assistance, reducing the number of explicit gestures required per intended message.
+
+8. **Gesture Disambiguation Layer**: For confusion-prone pairs ('M'/'N', 'O'/'Q', 'C'/'O'), convexity defect analysis for fingertip counting as a secondary discriminator triggered when the primary cosine similarity margin falls below 0.25.
+
+9. **Open ISL Dataset Creation**: Collaboration with ISL educators to produce a publicly released dataset of 500+ samples per sign across 100 ISL vocabulary items, enabling benchmarking and research replication.
+
+10. **Cross-Language Generalization Study**: Evaluating the same feature set and pipeline without modification on ASL, British Sign Language, and Chinese Sign Language, testing the claim that geometric Hu Moment features are sign-language-agnostic.
+
+The investigated pipeline demonstrates that the geometry of static hand gestures is mathematically tractable with classical techniques and a single template per gesture class. The research agenda above extends that tractability toward the full communicative range of ISL—dynamic, two-handed, and sentence-level expression—delivered on hardware accessible to the community it is designed to serve.
+
+---
+
+## ACKNOWLEDGEMENTS
+
+The authors acknowledge the faculty and staff of the Department of Computer Science and Engineering, Manipal Institute of Technology, for infrastructure support and academic guidance throughout this project. The deaf and hard-of-hearing community is recognized as the primary stakeholder of this work; technology developed in this domain should serve community autonomy rather than substitute for professional human interpreters. The OpenCV project and its contributors are acknowledged for providing the open-source computer vision library on which this pipeline is constructed. Preliminary feedback from student peers during testing sessions was instrumental in calibrating stability countdown duration and the visual feedback affordances.
