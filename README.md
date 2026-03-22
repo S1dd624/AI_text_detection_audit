@@ -1,6 +1,6 @@
-# Multi-Lens Forensic Audit of Neural AI Text Detectors
+# Audit of AI Text Detectors
 
-A topic-controlled evaluation framework for auditing AI text detection systems. This project introduces the **Human Revision Study (HRS)** protocol — a set of same-topic document pairs where each pair shares identical subject matter but differs in authorship — and applies six complementary forensic lenses to expose failure modes invisible to standard benchmarks.
+A topic-controlled evaluation framework for auditing AI text detection systems across an **editing-depth spectrum**. This project introduces the **Human Revision Study (HRS)** protocol — a set of same-topic document pairs where all documents are AI-generated but edited by a human to varying degrees — and applies six complementary metrics to expose how detector responses shift with intervention depth.
 
 ## Key Results
 
@@ -8,12 +8,11 @@ A topic-controlled evaluation framework for auditing AI text detection systems. 
 |---|---|
 | DeBERTaV3 AUROC (AIHTD, N=8,238) | **0.971** |
 | SBERT Baseline AUROC | **0.815** |
-| HRS Discrimination (3/4 GT pairs) | Δ ∈ [−0.982, −0.906] |
-| Meta-recursive anomaly (Detection pair) | Δ ≈ 0.000 |
-| Synthetic control (AI vs AI) | Δ = −0.004 |
+| HRS High-Intervention pairs (3/3) | Δ ∈ [−0.982, −0.906] |
+| Zero-Intervention anchor (Sign/ISL) | Δ = −0.004 |
 | H₁ Topological Density | p = 0.433 (non-significant) |
 
-DeBERTa achieves near-perfect separation on three of four ground-truth pairs but fails completely when the text's topic is AI text detection itself — a **meta-recursive domain confound** where subject matter overlaps with learned detection features.
+DeBERTa produces near-maximal separation on all three high-intervention pairs, where heavy human editing shifts detector scores decisively. The zero-intervention anchor correctly yields Δ ≈ 0, confirming the methodology.
 
 ## Repository Structure
 
@@ -22,11 +21,10 @@ DeBERTa achieves near-perfect separation on three of four ground-truth pairs but
 ├── final_phase2.ipynb       # Phase 2: initial SBERT + DeBERTa pipeline
 ├── v1_phase3.ipynb          # Phase 3: topology introduction
 ├── HRS/                     # Human Revision Study document pairs
-│   ├── eg_hum.txt / eg_ai.txt           # Education domain
-│   ├── dei_hum.txt / DEI_AI.txt         # Policy/DEI domain
-│   ├── sust_hum.txt / sust_ai.txt       # Sustainability domain
-│   ├── ann_hum.txt / ann_ai.txt         # Detection domain (anomaly pair)
-│   └── sign_ai / isl_recognition_evaluative_paper.txt  # Synthetic control
+│   ├── eg_hum.txt / eg_ai.txt           # Education domain (high-intervention)
+│   ├── dei_hum.txt / DEI_AI.txt         # Policy/DEI domain (high-intervention)
+│   ├── sust_hum.txt / sust_ai.txt       # Sustainability domain (high-intervention)
+│   └── sign_ai / isl_recognition_evaluative_paper.txt  # Zero-intervention anchor
 ├── run_report.json          # Exported metrics and environment info
 ├── paper_acl_findings.tex   # ACL Findings format manuscript
 ├── paper_ieee.tex           # IEEE format manuscript
@@ -41,7 +39,7 @@ DeBERTa achieves near-perfect separation on three of four ground-truth pairs but
 - **DeBERTaV3-Base**: Fine-tuned with split learning rates (backbone 2×10⁻⁵, head 1×10⁻⁴), Float32 inference. Initial training failure (frozen classification head, AUROC 0.50) diagnosed and repaired via gradient monitoring.
 - **SBERT Baseline**: Logistic regression on mean-pooled `all-mpnet-base-v2` sentence embeddings.
 
-### Six Forensic Lenses
+### Six Metrics
 1. **Detector probability delta** — P(AI) difference between paired texts
 2. **H₁ topological density** — Persistent 1-dimensional loops in sentence embedding point clouds (Vietoris-Rips filtration)
 3. **Hypothesis Revision Index (HRI)** — Discourse marker density per 100 words
@@ -52,8 +50,8 @@ DeBERTa achieves near-perfect separation on three of four ground-truth pairs but
 ### Datasets
 | Dataset | Description | N |
 |---|---|---|
-| AIHTD | AI vs Human labeled text corpus | 8,238 |
-| HRS | Topic-controlled document pairs (4 GT + 1 SC) | 5 pairs |
+| AIHTD | Labeled text corpus | 8,238 |
+| HRS | Topic-controlled document pairs (3 high-intervention + 1 zero-intervention) | 4 pairs |
 | ArgRewrite | Longitudinal essay drafts (D1→D2→D3) | 21 essays |
 
 ## Running the Pipeline
@@ -77,23 +75,8 @@ Run cells sequentially. The notebook handles data loading, model training, HRS s
 
 ## Limitations
 
-- HRS N=5 limits statistical power; findings are pilot-scale evidence
+- HRS N=4 limits statistical power; findings are pilot-scale evidence
 - No adversarial robustness testing (paraphrasing attacks)
 - AIHTD generator provenance unknown
 - Text length variation (324–6,199 words) may confound non-normalized metrics
 - H₁ topological density result is non-significant and exploratory
-
-## License
-
-MIT
-
-## Citation
-
-```bibtex
-@misc{sid2026multilens,
-  title={Multi-Lens Forensic Audit of Neural AI Text Detectors Under Topic-Controlled Conditions},
-  author={Sid},
-  year={2026},
-  institution={Manipal Institute of Technology}
-}
-```

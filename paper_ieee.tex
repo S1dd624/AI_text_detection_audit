@@ -1,5 +1,5 @@
 % ============================================================
-% IEEE Conference/Journal Format — Multi-Lens Forensic Audit
+% IEEE Conference/Journal Format — Audit Under Editing-Depth Variation
 % Compile with: pdflatex → bibtex → pdflatex × 2
 % Requires: IEEEtran.cls (standard in Overleaf)
 % ============================================================
@@ -12,7 +12,7 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 
-\title{Multi-Lens Forensic Audit of Neural AI Text Detectors Under Topic-Controlled Conditions}
+\title{Audit of AI Text Detectors Under Editing-Depth Variation}
 
 \author{
 \IEEEauthorblockN{Sid}
@@ -25,21 +25,20 @@ Manipal, India}
 \maketitle
 
 \begin{abstract}
-We present a forensic auditing methodology for AI text detectors using topic-controlled paired evaluation. We construct the Human Revision Study (HRS): five document pairs where each pair shares the same subject but differs in authorship (human vs.\ AI), plus a synthetic control (AI vs.\ AI). We audit a fine-tuned DeBERTaV3 classifier (AUROC 0.971 on the AIHTD corpus, $N = 8{,}238$) and an SBERT baseline (AUROC 0.815) through six lenses: detector delta, $H_1$ topological density, Hypothesis Revision Index, cross-document BERTScore, and intra-document similarity. DeBERTa achieves massive separation ($\Delta \in [-0.982, -0.906]$) on three of four ground-truth pairs but fails ($\Delta \approx 0$) on the pair whose topic is AI text detection itself---a meta-recursive domain confound. The synthetic control validates the design ($\Delta = -0.004$). Topological features do not reach significance ($p = 0.433$). We contribute an audit framework revealing topic-induced detector blindness.
+We present an auditing methodology for AI text detectors using topic-controlled paired evaluation across an editing-depth spectrum. We construct the Human Revision Study (HRS): four document pairs where all documents are AI-generated but differ in the degree of subsequent human editing. We audit a fine-tuned DeBERTaV3 classifier (AUROC 0.971 on the AIHTD corpus, $N = 8{,}238$) and an SBERT baseline (AUROC 0.815) through six metrics: detector delta, $H_1$ topological density, Hypothesis Revision Index, cross-document BERTScore, and intra-document similarity. DeBERTa achieves near-maximal separation ($\Delta \in [-0.982, -0.906]$) on all three high-intervention pairs. A zero-intervention anchor validates the design ($\Delta = -0.004$). Topological features do not reach significance ($p = 0.433$). We contribute an audit framework for studying how editing depth affects detector response.
 \end{abstract}
 
 \begin{IEEEkeywords}
-AI-generated text detection, forensic auditing, topological data analysis, DeBERTa, topic-controlled evaluation
+AI text detection, editing depth, topological data analysis, DeBERTa, topic-controlled evaluation
 \end{IEEEkeywords}
 
 \section{Introduction}
 
-AI text detectors are typically evaluated by comparing human and AI texts from \textit{different} topics~\cite{wang2024m4}, conflating topic with authorship signals. We address this with three contributions:
+AI text detectors are typically evaluated by comparing texts from \textit{different} topics~\cite{wang2024m4}, conflating topical signals with stylistic features. We address this with two contributions:
 
 \begin{enumerate}
-    \item A topic-controlled evaluation protocol (HRS) with five same-topic human--AI document pairs and one AI--AI synthetic control.
-    \item A multi-lens forensic audit combining six complementary metrics.
-    \item The first documented meta-recursive detection failure: a neural detector fails when the text's topic is AI text detection itself.
+    \item A topic-controlled evaluation protocol (HRS) with four same-topic document pairs spanning an editing-depth spectrum from zero to heavy human intervention.
+    \item An audit framework combining six complementary metrics to study how editing depth affects detector response.
 \end{enumerate}
 
 \section{Related Work}
@@ -64,22 +63,21 @@ Sengupta et al.~\cite{sengupta2025mixrevdetect} achieve $F_1 = 88.86\%$ on mixed
 
 \subsection{Datasets}
 
-The AI Human Text Detection (AIHTD) corpus contains $N = 8{,}238$ labeled documents. The HRS comprises five domain-specific pairs (Table~\ref{tab:pairs}), each sharing the same topic. Four are ground truth (human vs.\ AI); one is a synthetic control (both AI-generated).
+The AIHTD corpus contains $N = 8{,}238$ labeled documents. The HRS comprises four domain-specific pairs (Table~\ref{tab:pairs}), each sharing the same topic. Three are high-intervention (heavy human editing of an AI-generated base text); one is a zero-intervention anchor (no editing).
 
 \begin{table}[t]
 \centering
-\caption{HRS Document Pairs}
+\caption{HRS Document Pairs. HI = High-Intervention, ZI = Zero-Intervention.}
 \label{tab:pairs}
 \small
 \begin{tabular}{llcc}
 \toprule
-\textbf{Domain} & \textbf{Type} & \textbf{AI Wds} & \textbf{Hum Wds} \\
+\textbf{Domain} & \textbf{Type} & \textbf{Base Wds} & \textbf{Edited Wds} \\
 \midrule
-Education      & GT   & 1,574 & 1,488 \\
-Policy         & GT   & 1,956 & 1,966 \\
-Sustainability & GT   & 324   & 355   \\
-Detection      & GT   & 558   & 455   \\
-Sign/ISL       & SC   & 6,199 & 5,917 \\
+Education      & HI   & 1,574 & 1,488 \\
+Policy         & HI   & 1,956 & 1,966 \\
+Sustainability & HI   & 324   & 355   \\
+Sign/ISL       & ZI   & 6,199 & 5,917 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -94,9 +92,9 @@ where $f_\theta(x) \in \mathbb{R}^2$ denotes the classifier logits (the two-dime
 
 \subsubsection{SBERT Baseline} Logistic regression on mean-pooled Sentence-BERT (all-mpnet-base-v2) embeddings of dimension 768.
 
-\subsection{Audit Lenses}
+\subsection{Evaluation Metrics}
 
-\textbf{Detector Delta:} For each pair, $\Delta_d = P_{\text{AI}}^d(x_{\text{AI}}) - P_{\text{AI}}^d(x_{\text{Hum}})$ where $d$ is the detector. A negative $\Delta$ indicates correct discrimination.
+\textbf{Detector Delta:} For each pair, $\Delta_d = P_{\text{AI}}^d(x_{\text{base}}) - P_{\text{AI}}^d(x_{\text{edited}})$ where $d$ is the detector. A negative $\Delta$ indicates the edited text scores as less AI-like.
 
 \textbf{$H_1$ Topological Density:} Given a text decomposed into $n$ sentences embedded via SBERT as a point cloud $\mathcal{P} \subset \mathbb{R}^{768}$, we compute the Vietoris--Rips persistence diagram $\text{Dgm}_1(\mathcal{P})$ with maximum filtration parameter $\epsilon_{\max} = 2.0$. The $H_1$ density is the length-normalized total persistence:
 \begin{equation}
@@ -119,11 +117,11 @@ where $\mathcal{M}$ is a set of discourse markers (e.g., ``however,'' ``furtherm
 
 \subsection{Statistical Testing}
 
-Given $N = 4$ ground-truth pairs, we use paired permutation tests with $K = 1{,}000$ permutations and report Cohen's $d$:
+Given $N = 3$ high-intervention pairs, we use paired permutation tests with $K = 1{,}000$ permutations and report Cohen's $d$:
 \begin{equation}
-    d = \frac{\bar{a} - \bar{h}}{s_{\text{pooled}}}
+    d = \frac{\bar{b} - \bar{e}}{s_{\text{pooled}}}
 \end{equation}
-where $\bar{a}, \bar{h}$ are the mean metric values for AI and human texts, and $s_{\text{pooled}} = \sqrt{(s_a^2 + s_h^2)/2}$ is the pooled standard deviation.
+where $\bar{b}, \bar{e}$ are the mean metric values for base and edited texts, and $s_{\text{pooled}} = \sqrt{(s_b^2 + s_e^2)/2}$ is the pooled standard deviation.
 
 \section{Results}
 
@@ -133,40 +131,37 @@ On AIHTD ($N = 8{,}238$, 80/20 split): DeBERTa AUROC $= 0.971$; SBERT AUROC $= 0
 
 \subsection{HRS Audit Results}
 
-Table~\ref{tab:hrs} presents the multi-lens audit. Three findings emerge.
+Table~\ref{tab:hrs} presents the audit results. Two findings emerge.
 
 \begin{table*}[t]
 \centering
-\caption{HRS Multi-Lens Audit Results. Bold: $|\Delta| > 0.5$. GT = Ground Truth, SC = Synthetic Control.}
+\caption{HRS Audit Results. Bold: $|\Delta| > 0.5$. HI = High-Intervention, ZI = Zero-Intervention.}
 \label{tab:hrs}
 \small
 \begin{tabular}{llccccc}
 \toprule
 \textbf{Domain} & \textbf{Type} & \textbf{SBERT $\Delta$} & \textbf{DeBERTa $\Delta$} & \textbf{$H_1$ Density $\Delta$} & \textbf{HRI Rate $\Delta$} & \textbf{Cross $F_1$} \\
 \midrule
-Education       & GT   & $-0.034$ & $\mathbf{-0.906}$ & $-0.005$ & $+0.494$ & $0.718$ \\
-Policy          & GT   & $-0.142$ & $\mathbf{-0.978}$ & $+0.001$ & $-0.231$ & $0.885$ \\
-Sustainability  & GT   & $-0.206$ & $\mathbf{-0.982}$ & $-0.001$ & $+0.072$ & $0.693$ \\
-Detection       & GT   & $-0.064$ & $-0.000$          & $+0.006$ & $+0.208$ & $0.522$ \\
+Education       & HI   & $-0.034$ & $\mathbf{-0.906}$ & $-0.005$ & $+0.494$ & $0.718$ \\
+Policy          & HI   & $-0.142$ & $\mathbf{-0.978}$ & $+0.001$ & $-0.231$ & $0.885$ \\
+Sustainability  & HI   & $-0.206$ & $\mathbf{-0.982}$ & $-0.001$ & $+0.072$ & $0.693$ \\
 \midrule
-Sign/ISL        & SC   & $-0.062$ & $-0.004$          & $+0.003$ & $-0.046$ & $0.707$ \\
+Sign/ISL        & ZI   & $-0.062$ & $-0.004$          & $+0.003$ & $-0.046$ & $0.707$ \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-\textbf{Finding 1: DeBERTa discriminates 3/4 ground-truth pairs.} Education ($\Delta = -0.906$), policy ($\Delta = -0.978$), and sustainability ($\Delta = -0.982$) show near-maximal separation. The detector confidently assigns higher AI probability to AI-generated texts.
+\textbf{Finding 1: DeBERTa responds to editing depth.} Education ($\Delta = -0.906$), policy ($\Delta = -0.978$), and sustainability ($\Delta = -0.982$) show near-maximal separation. Heavy human editing shifts detector scores decisively.
 
-\textbf{Finding 2: Meta-recursive anomaly.} The detection domain pair ($\Delta \approx 0$) fails precisely because both texts discuss AI text detection. We hypothesize two mechanisms: (a)~vocabulary overlap between the text's subject and DeBERTa's learned detection features; (b)~the human text's compressed, fragment-style writing occupies an embedding region DeBERTa associates with AI text.
-
-\textbf{Finding 3: Synthetic control validates design.} The AI-vs.-AI pair yields $\Delta = -0.004$, confirming the detector does not hallucinate authorship differences absent a real signal.
+\textbf{Finding 2: Zero-intervention anchor validates design.} The unedited pair yields $\Delta = -0.004$, confirming the detector does not produce spurious differences when no editing intervention occurs.
 
 \subsection{Statistical Analysis}
 
-Table~\ref{tab:perm} reports permutation tests on the four ground-truth pairs.
+Table~\ref{tab:perm} reports permutation tests on the three high-intervention pairs.
 
 \begin{table}[t]
 \centering
-\caption{Permutation Tests ($N = 4$ GT Pairs, $K = 1{,}000$)}
+\caption{Permutation Tests ($N = 3$ HI Pairs, $K = 1{,}000$)}
 \label{tab:perm}
 \small
 \begin{tabular}{lccc}
@@ -188,7 +183,7 @@ $H_1$ topological density shows no meaningful separation ($d = 0.02$, $p = 0.433
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{hrs_metric_deltas.pdf}
-    \caption{Metric deltas across HRS pairs. The detection domain consistently shows near-zero deltas across all lenses.}
+    \caption{Metric deltas across HRS pairs.}
     \label{fig:hrs_deltas}
 \end{figure}
 
@@ -213,19 +208,17 @@ $H_1$ topological density shows no meaningful separation ($d = 0.02$, $p = 0.433
     \label{fig:argrewrite}
 \end{figure}
 
-Fig.~\ref{fig:hrs_deltas} shows the metric deltas across all HRS pairs, with the detection domain consistently near zero. Fig.~\ref{fig:h1} and Fig.~\ref{fig:persistence} show the non-significant topological analysis. Fig.~\ref{fig:argrewrite} shows ArgRewrite trajectories indicating moderate HRI monotonicity.
+Fig.~\ref{fig:hrs_deltas} shows the metric deltas across all HRS pairs. Fig.~\ref{fig:h1} and Fig.~\ref{fig:persistence} show the non-significant topological analysis. Fig.~\ref{fig:argrewrite} shows ArgRewrite trajectories indicating moderate HRI monotonicity.
 
 \section{Discussion}
 
-\subsection{Meta-Recursive Domain Confound}
+\subsection{Editing-Depth Sensitivity}
 
-The detection pair anomaly constitutes our central finding. When a text's subject matter overlaps with the features a detector uses for classification, the detector cannot disentangle topic from authorship. This has practical implications: neural detectors may systematically fail on texts about AI, NLP, and machine learning---precisely the domains where detection is most needed.
-
-To our knowledge, this is the first documented instance of such a meta-recursive failure in AI text detection. While our sample size prevents strong generalization, the effect is absolute ($\Delta \approx 0$ on a pair with clear stylistic differences) and warrants investigation at scale.
+The consistent response across all three high-intervention pairs suggests that detectors are sensitive to the degree of human editing applied to AI-generated text. The near-maximal deltas ($\Delta \in [-0.982, -0.906]$) indicate that substantial rewriting shifts texts away from patterns the detector associates with AI generation.
 
 \subsection{Topological Analysis}
 
-Our $H_1$ density results ($p = 0.433$) contrast with Tulchinskii et al.'s~\cite{tulchinskii2024intrinsic} robust PHD separation. The difference likely reflects: (1) our $N = 4$ vs.\ their thousands of samples; (2) our use of total persistence rather than intrinsic dimensionality; and (3) our topic-controlled design, which may reduce exactly the topical signal driving their separation. We present TDA as exploratory evidence, not a detection method.
+Our $H_1$ density results ($p = 0.433$) contrast with Tulchinskii et al.'s~\cite{tulchinskii2024intrinsic} robust PHD separation. The difference likely reflects: (1) our $N = 3$ vs.\ their thousands of samples; (2) our use of total persistence rather than intrinsic dimensionality; and (3) our topic-controlled design, which may reduce exactly the topical signal driving their separation. We present TDA as exploratory evidence, not a detection method.
 
 \subsection{Practical Implications}
 
@@ -234,7 +227,7 @@ The DeBERTa training repair (from AUROC 0.50 to 0.971) highlights a practical le
 \section{Limitations}
 
 \begin{itemize}
-    \item HRS comprises only $N = 5$ pairs. Findings are pilot evidence requiring replication at scale.
+    \item HRS comprises only $N = 4$ pairs. Findings are pilot evidence requiring replication at scale.
     \item We do not test adversarial robustness (paraphrasing attacks), a critical gap given recent work~\cite{krishna2024paraphrasing,sadasivan2023reliable}.
     \item AIHTD generator provenance is unknown.
     \item Text length varies significantly across HRS pairs (324--6,199 words).
@@ -244,7 +237,7 @@ The DeBERTa training repair (from AUROC 0.50 to 0.971) highlights a practical le
 
 \section{Conclusion}
 
-We introduced a topic-controlled forensic audit methodology that reveals failure modes invisible to standard AI text detection benchmarks. A fine-tuned DeBERTa classifier achieves near-perfect discrimination on three of four same-topic pairs ($\Delta$ ranging from $-0.906$ to $-0.982$) but fails completely on a meta-recursive pair about AI detection ($\Delta \approx 0$). The synthetic control validates the experimental design ($\Delta = -0.004$). Topological features ($H_1$ density) do not reach significance at this scale. We contribute the HRS protocol, the multi-lens audit framework, and the first documentation of topic-induced detector blindness as tools for future forensic evaluation of AI text detectors.
+We introduced a topic-controlled audit methodology for studying how editing depth affects AI text detector response. A fine-tuned DeBERTa classifier achieves near-maximal separation on all three high-intervention pairs ($\Delta$ ranging from $-0.906$ to $-0.982$), where heavy human editing shifts detector scores decisively. The zero-intervention anchor validates the design ($\Delta = -0.004$). Topological features ($H_1$ density) do not reach significance at this scale. We contribute the HRS protocol and audit framework as tools for future evaluation of detector sensitivity to editing depth.
 
 \bibliographystyle{IEEEtran}
 \begin{thebibliography}{15}

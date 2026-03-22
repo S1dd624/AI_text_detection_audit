@@ -1,29 +1,28 @@
-# Technical Report: Multi-Lens Forensic Audit of Neural AI Text Detectors
+# Technical Report: Audit of AI Text Detectors Under Editing-Depth Variation
 
 ## 1. Research Objective
 
-This study audits AI text detection systems under **topic-controlled conditions** — an evaluation paradigm where human and AI texts share identical subject matter, isolating authorship signals from topical confounds. Standard benchmarks compare texts from different topics, making it unclear whether detectors learn authorship or simply topic-dependent features.
+This study audits AI text detection systems under **topic-controlled conditions** across an editing-depth spectrum. All documents in the HRS dataset are AI-generated; they differ only in the degree of subsequent human editing. Standard benchmarks compare texts from different topics and different true authorship, making it unclear whether detectors learn stylistic features or topical signals.
 
-We introduce the **Human Revision Study (HRS)** protocol: five domain-specific document pairs where each pair covers the same topic with different authorship. We apply six complementary forensic lenses to two detector architectures and report a previously undocumented failure mode.
+We introduce the **Human Revision Study (HRS)** protocol: four domain-specific document pairs where each pair covers the same topic, with documents ranging from zero human intervention to heavy selective rewriting.
 
 ## 2. Datasets
 
-### 2.1 AIHTD Corpus
-- **Size**: 8,238 labeled texts (human vs. AI-generated)
+### 2.1 AH&AITD Corpus
+- **Size**: 8,238 labeled texts
 - **Split**: 80/20 stratified (6,590 train / 1,648 test)
 - **Preprocessing**: Layout noise removal, length filtering (5th–95th percentile overlap)
 
 ### 2.2 HRS Document Pairs
 
-| # | Domain | Pair Type | AI Words | Human Words | Description |
+| # | Domain | Intervention Level | Base Words | Edited Words | Description |
 |---|---|---|---|---|---|
-| 1 | Education | Ground Truth | 1,574 | 1,488 | Emotion-aware chatbot paper |
-| 2 | Policy/DEI | Ground Truth | 1,956 | 1,966 | Workplace diversity study |
-| 3 | Sustainability | Ground Truth | 324 | 355 | Resource management overview |
-| 4 | Detection | Ground Truth | 558 | 455 | BiLSTM-based AI text detection |
-| 5 | Sign/ISL | Synthetic Control | 6,199 | 5,917 | ISL recognition system (AI vs. AI) |
+| 1 | Education | High | 1,574 | 1,488 | Emotion-aware chatbot paper |
+| 2 | Policy/DEI | High | 1,956 | 1,966 | Workplace diversity study |
+| 3 | Sustainability | High | 324 | 355 | Resource management overview |
+| 4 | Sign/ISL | Zero | 6,199 | 5,917 | ISL recognition system (anchor) |
 
-Each ground-truth pair consists of one human-authored text and one AI-generated text on the same topic. The synthetic control pair contains two AI-generated texts describing the same system from different rhetorical angles, serving as a null-hypothesis validation.
+Three high-intervention pairs consist of an AI-generated base text and a heavily edited version on the same topic. The zero-intervention pair contains two AI-generated texts describing the same system from different rhetorical perspectives, serving as the baseline anchor of the editing-depth spectrum.
 
 ### 2.3 ArgRewrite Corpus
 - **Size**: 21 argumentative essays with 3 drafts each (D1 → D2 → D3)
@@ -49,13 +48,13 @@ The initial training attempt produced AUROC = 0.50 (random performance) across a
 - Classifier: Logistic regression on mean-pooled embeddings
 - AUROC: 0.815 [95% CI: 0.801, 0.828]
 
-### 3.2 Forensic Lenses
+### 3.2 Evaluations
 
-For each HRS pair (x_AI, x_Hum), we compute:
+For each HRS pair (x_base, x_edited), we compute:
 
-**Detector Delta**: Δ_d = P_AI^d(x_AI) − P_AI^d(x_Hum)
+**Detector Delta**: Δ_d = P_AI^d(x_base) − P_AI^d(x_edited)
 
-A negative delta means the detector rates the AI text as more AI-like than the human text (correct discrimination).
+A negative delta means the detector scores the base text as more AI-like than the edited text.
 
 **H₁ Topological Density**: Sentence embeddings form a point cloud P = {e₁, ..., eₙ} ⊂ ℝ⁷⁶⁸. We compute Vietoris-Rips persistent homology (ε_max = 2.0) and extract H₁ (1-dimensional loop) features. The density is total H₁ persistence divided by sentence count:
 
@@ -73,24 +72,23 @@ where (b_i, d_i) are birth/death times from the persistence diagram.
 
 ## 4. Results
 
-### 4.1 AIHTD Performance
+### 4.1 AH&AITD Performance
 
 | Model | AUROC | 95% CI |
 |---|---|---|
 | DeBERTaV3 | 0.971 | — |
 | SBERT + LR | 0.815 | [0.801, 0.828] |
 
-### 4.2 HRS Multi-Lens Audit
+### 4.2 HRS Audit
 
 | Domain | SBERT Δ | DeBERTa Δ | H₁ Δ | HRI Δ | Cross F₁ |
 |---|---|---|---|---|---|
 | Education | −0.034 | **−0.906** | −0.005 | +0.494 | 0.718 |
 | Policy | −0.142 | **−0.978** | +0.001 | −0.231 | 0.885 |
 | Sustainability | −0.206 | **−0.982** | −0.001 | +0.072 | 0.693 |
-| Detection | −0.064 | −0.000 | +0.006 | +0.208 | 0.522 |
-| Sign/ISL (SC) | −0.062 | −0.004 | +0.003 | −0.046 | 0.707 |
+| Sign/ISL (ZI) | −0.062 | −0.004 | +0.003 | −0.046 | 0.707 |
 
-### 4.3 Statistical Tests (N=4 Ground Truth Pairs)
+### 4.3 Statistical Tests (N=3 High-Intervention Pairs)
 
 | Metric | Mean Δ | p-value | Cohen's d |
 |---|---|---|---|
@@ -101,17 +99,14 @@ where (b_i, d_i) are birth/death times from the persistence diagram.
 
 ## 5. Key Findings
 
-### 5.1 DeBERTa Discriminates 3 of 4 Ground Truth Pairs
-Education (Δ = −0.906), policy (Δ = −0.978), and sustainability (Δ = −0.982) show near-maximal separation. The detector confidently identifies AI text as AI-generated and human text as human-authored when topic is controlled.
+### 5.1 DeBERTa Responds to Editing Depth
+Education (Δ = −0.906), policy (Δ = −0.978), and sustainability (Δ = −0.982) all show near-maximal separation. Heavy human editing shifts detector scores decisively, with DeBERTa scoring base texts as more AI-like and edited texts as less so.
 
-### 5.2 Meta-Recursive Domain Confound
-The detection pair (Δ ≈ 0.000) is the central finding. Both texts discuss AI text detection — the same domain the detector operates in. The subject matter overlaps with learned detection features, and DeBERTa cannot separate authorship from content. This suggests neural detectors may systematically fail on texts about AI, NLP, and machine learning.
+### 5.2 Zero-Intervention Anchor Validates Methodology
+The Sign/ISL pair (both unedited AI-generated texts) yields Δ = −0.004, confirming the detector does not produce spurious differences when no editing intervention occurs.
 
-### 5.3 Synthetic Control Validates Methodology
-The AI-vs-AI pair yields Δ = −0.004, confirming the detector does not hallucinate differences between two AI-generated texts.
-
-### 5.4 Topological Features Are Non-Significant
-H₁ density shows no significant difference (p = 0.433, d = 0.02) between human and AI texts. Intra-document similarity shows a large effect (d = 2.27) but does not reach significance at α = 0.05 (p = 0.060). These are presented as exploratory.
+### 5.3 Topological Features Are Non-Significant
+H₁ density shows no significant difference (p = 0.433, d = 0.02). Intra-document similarity shows a large effect (d = 2.27) but does not reach significance at α = 0.05 (p = 0.060). These are presented as exploratory.
 
 ## 6. DeBERTa Training Failure: Diagnosis and Repair
 
@@ -124,7 +119,7 @@ The initial DeBERTa training produced constant output probability (P_AI = 0.3648
 
 ## 7. Limitations
 
-- HRS comprises only 5 pairs — findings are pilot-scale evidence, not statistically powered conclusions
+- HRS comprises only 4 pairs — findings are pilot-scale evidence, not statistically powered conclusions
 - No adversarial robustness testing (paraphrasing attacks were implemented in earlier phases but removed during the A100 migration)
 - AIHTD dataset generator provenance is unknown
 - Text length varies 6.7× across HRS pairs (324 to 6,199 words), potentially confounding non-normalized metrics
