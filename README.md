@@ -1,12 +1,12 @@
 # Audit of AI Text Detectors
 
-A topic-controlled evaluation framework for auditing AI text detection systems across an **editing-depth spectrum**. This project introduces the **Human Revision Study (HRS)** protocol — a set of same-topic document pairs where all documents are AI-generated but edited by a human to varying degrees — and applies six complementary metrics to expose how detector responses shift with intervention depth.
+A topic-controlled evaluation framework for auditing AI text detection systems across an **editing-depth spectrum**. This project introduces the **Human Revision Study (HRS)** protocol where a set of same-topic document pairs where all documents are AI-generated but edited by a human to varying degrees to study detector responses shift with intervention depth.
 
 ## Key Results
 
 | Metric | Value |
 |---|---|
-| DeBERTaV3 AUROC (AIHTD, N=8,238) | **0.971** |
+| DeBERTaV3 AUROC (AH&AITD, N=8,238) | **0.971** |
 | SBERT Baseline AUROC | **0.815** |
 | HRS High-Intervention pairs (3/3) | Δ ∈ [−0.982, −0.906] |
 | Zero-Intervention anchor (Sign/ISL) | Δ = −0.004 |
@@ -50,7 +50,7 @@ DeBERTa produces near-maximal separation on all three high-intervention pairs, w
 ### Datasets
 | Dataset | Description | N |
 |---|---|---|
-| AIHTD | Labeled text corpus | 8,238 |
+| AH&AITD | Labeled text corpus | 8,238 |
 | HRS | Topic-controlled document pairs (3 high-intervention + 1 zero-intervention) | 4 pairs |
 | ArgRewrite | Longitudinal essay drafts (D1→D2→D3) | 21 essays |
 
@@ -68,10 +68,7 @@ pip install torch transformers sentence-transformers scikit-learn giotto-tda ber
 
 ### Execution Order
 1. `final_run.ipynb` — Complete pipeline (recommended, self-contained)
-2. `final_phase2.ipynb` — Earlier phase for reference
-3. `v1_phase3.ipynb` — Topology exploration for reference
-
-Run cells sequentially. The notebook handles data loading, model training, HRS scoring, statistical tests, and figure export.
+2. `final_phase2.ipynb` and `v1_phase3.ipynb` — past tests 
 
 ## Limitations
 
